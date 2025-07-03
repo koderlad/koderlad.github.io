@@ -22,18 +22,26 @@ let dictionary = null;
 let tesseractWorker = null;
 let isInitialized = false;
 
-// --- Initialization (no changes) ---
+// --- Initialization ---
 async function initialize() {
   await Promise.all([createTesseractWorker(), loadDictionary()]);
   isInitialized = true;
   console.log("Lexilens is ready!");
 }
+
+// *** MODIFIED FUNCTION: Tell Tesseract where to find local files ***
 async function createTesseractWorker() {
   tesseractWorker = await Tesseract.createWorker("eng", 1, {
+    // These paths are relative to your app's root.
+    workerPath: "lib/worker.min.js",
+    langPath: "lib/",
+    corePath:
+      "https://cdn.jsdelivr.net/npm/tesseract.js-core@5/tesseract-core.wasm.js", // Core can often still be loaded from CDN
     logger: (m) => console.log(m),
   });
-  console.log("Tesseract worker created.");
+  console.log("Tesseract worker created from local files.");
 }
+
 async function loadDictionary() {
   try {
     const response = await fetch("dictionary.json");
@@ -55,20 +63,18 @@ function lookupWord(word) {
   return dictionary[cleanWord] || "Definition not found.";
 }
 
-// *** MODIFIED FUNCTION: CATCHES AND ALERTS THE REAL ERROR ***
+// *** RESTORED FUNCTION: Cleaned up debugging alert ***
 async function recognizeText(imageData) {
   try {
     const { data } = await tesseractWorker.recognize(imageData);
-    return data; // If successful, return the data.
+    return data;
   } catch (error) {
-    // If it fails, show the actual error message from Tesseract.
-    alert(`TESSERACT CRASHED:\n\n${error.message}`);
-    console.error("Actual Tesseract Error:", error);
-    return null; // Return null so the rest of the app knows it failed.
+    console.error("OCR Error:", error);
+    return null;
   }
 }
 
-// --- UI and Event Handlers (no changes) ---
+// --- UI and Event Handlers ---
 function showLoader(visible) {
   overlay.classList.toggle("visible", visible);
   loader.classList.toggle("hidden", !visible);
@@ -99,7 +105,6 @@ async function handleConfirm() {
   }
   const rect = cropBox.getBoundingClientRect();
   if (rect.width <= 0 || rect.height <= 0) {
-    alert("The crop box has an invalid size.");
     cleanupUI();
     videoElement.play();
     return;
@@ -109,25 +114,24 @@ async function handleConfirm() {
 
   const parentRect = cameraContainer.getBoundingClientRect();
   const imageData = ctx.getImageData(
-    rect.left - parentRect.left,
+    rect.left - parentRect.top,
     rect.top - parentRect.top,
     rect.width,
     rect.height
   );
   const processedImageData = preprocessImage(imageData);
 
-  // This will now show the detailed error if it crashes.
   const result = await recognizeText(processedImageData);
 
-  // This part of the logic now only runs if the OCR didn't crash.
-  if (result) {
+  if (result && result.text.trim()) {
     const recognizedWord = result.text.trim();
     const definition = lookupWord(recognizedWord);
     showResult(recognizedWord, definition);
   } else {
-    // If result is null (because the OCR crashed), we just hide the loader.
-    showLoader(false);
-    videoElement.play();
+    showResult(
+      "Not Found",
+      "Could not read the text. Please try for a clearer image."
+    );
   }
 
   cleanupUI();
@@ -291,6 +295,6 @@ function endDrag() {
   activeHandle = null;
   document.removeEventListener("mousemove", drag);
   document.removeEventListener("touchmove", drag);
-  document.removeEventListener("mouseup", endDrag);
+  document.addEventListener("mouseup", endDrag);
   document.removeEventListener("touchend", endDrag);
 }

@@ -1,4 +1,4 @@
-// Get references to our HTML elements
+// --- Get references to HTML elements (no changes) ---
 const videoElement = document.getElementById("camera-feed");
 const cameraContainer = document.getElementById("camera-container");
 const desktopView = document.getElementById("desktop-view");
@@ -11,7 +11,7 @@ const resultWordEl = document.getElementById("result-word");
 const resultDefinitionEl = document.getElementById("result-definition");
 const closeResultBtn = document.getElementById("close-result-btn");
 
-// --- State Variables ---
+// --- State Variables (no changes) ---
 let cropBox = null,
   uiContainer = null,
   isDragging = false,
@@ -21,20 +21,17 @@ let cropBox = null,
 let dictionary = null;
 let tesseractWorker = null;
 
-// --- Initialization ---
+// --- Initialization (no changes) ---
 async function initialize() {
-  // We create the worker and load the dictionary at the same time
   await Promise.all([createTesseractWorker(), loadDictionary()]);
   console.log("Lexilens is ready!");
 }
-
 async function createTesseractWorker() {
   tesseractWorker = await Tesseract.createWorker("eng", 1, {
-    logger: (m) => console.log(m), // Logs progress in the console
+    logger: (m) => console.log(m),
   });
   console.log("Tesseract worker created.");
 }
-
 async function loadDictionary() {
   try {
     const response = await fetch("dictionary.json");
@@ -49,18 +46,19 @@ async function loadDictionary() {
   }
 }
 
+// --- Word Lookup (no changes) ---
 function lookupWord(word) {
   if (!dictionary) return "Dictionary not loaded.";
-  return dictionary[word.toLowerCase()] || "Definition not found.";
+  // Clean up the word before lookup: lowercase and remove non-alphabetic characters
+  const cleanWord = word.toLowerCase().replace(/[^a-z]/g, "");
+  return dictionary[cleanWord] || "Definition not found.";
 }
 
-// --- Main OCR Function ---
+// --- OCR Function (no changes) ---
 async function recognizeText(imageData) {
   try {
-    const {
-      data: { text },
-    } = await tesseractWorker.recognize(imageData);
-    return text.trim(); // Return the cleaned-up text
+    const { data } = await tesseractWorker.recognize(imageData);
+    return data;
   } catch (error) {
     console.error("OCR Error:", error);
     return null;
@@ -71,47 +69,75 @@ async function recognizeText(imageData) {
 function showLoader(visible) {
   overlay.classList.toggle("visible", visible);
   loader.classList.toggle("hidden", !visible);
-  resultBox.classList.toggle("hidden", true); // Always hide result box when loader state changes
+  resultBox.classList.toggle("hidden", true);
 }
 
-function showResult(word, definition) {
-  resultWordEl.innerText = word;
+// *** MODIFIED FUNCTION ***
+function showResult(recognizedWord, definition) {
+  // Show the user exactly what the OCR saw.
+  resultWordEl.innerText = recognizedWord;
   resultDefinitionEl.innerText = definition;
   overlay.classList.add("visible");
   loader.classList.add("hidden");
   resultBox.classList.remove("hidden");
 }
 
+// *** NEW FUNCTION: Image Pre-processing ***
+function preprocessImage(imageData) {
+  const data = imageData.data;
+  for (let i = 0; i < data.length; i += 4) {
+    // Convert to grayscale using the luminosity method
+    const grayscale =
+      data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+
+    // Apply thresholding to make it pure black or white
+    // A threshold of 128 is a common starting point.
+    const threshold = 128;
+    const color = grayscale < threshold ? 0 : 255;
+
+    data[i] = data[i + 1] = data[i + 2] = color;
+  }
+  // The alpha channel (data[i + 3]) is left untouched.
+  return imageData;
+}
+
+// *** MODIFIED FUNCTION ***
 async function handleConfirm() {
   showLoader(true);
 
   const rect = cropBox.getBoundingClientRect();
   const parentRect = cameraContainer.getBoundingClientRect();
 
-  // Get the image data from the canvas for the cropped area
-  const imageData = ctx.getImageData(
-    rect.left - parentRect.left,
-    rect.top - parentRect.top,
-    rect.width,
-    rect.height
-  );
+  const cropX = rect.left - parentRect.left;
+  const cropY = rect.top - parentRect.top;
+  const cropWidth = rect.width;
+  const cropHeight = rect.height;
 
-  // Perform OCR
-  const recognizedWord = await recognizeText(imageData);
-  console.log(`Recognized word: "${recognizedWord}"`);
+  // Get the image data from the canvas for the cropped area
+  const imageData = ctx.getImageData(cropX, cropY, cropWidth, cropHeight);
+
+  // **NEW STEP**: Pre-process the image for better accuracy
+  const processedImageData = preprocessImage(imageData);
+
+  // Perform OCR on the PROCESSED image
+  const result = await recognizeText(processedImageData);
+
+  // *** DEBUGGING LINE ***
+  // This will show us the full result from Tesseract, including confidence score.
+  console.log("Tesseract Result:", result);
+
+  const recognizedWord = result ? result.text.trim() : "";
 
   // Lookup definition
   if (recognizedWord) {
     const definition = lookupWord(recognizedWord);
+    // We pass the RAW recognized word to showResult for debugging
     showResult(recognizedWord, definition);
   } else {
-    showResult(
-      "Error",
-      "Could not recognize any text. Please try again with a clearer image."
-    );
+    showResult("Error", "Could not recognize any text. Please try again.");
   }
 
-  // Clean up the crop UI, but keep the result overlay visible
+  // Clean up the crop UI
   if (cropBox) cropBox.remove();
   if (uiContainer) uiContainer.remove();
   cropBox = null;
@@ -120,45 +146,13 @@ async function handleConfirm() {
 }
 
 closeResultBtn.onclick = () => {
-  showLoader(false); // This will hide the entire overlay
-  videoElement.play(); // Resume the camera feed
+  showLoader(false);
+  videoElement.play();
 };
 
-// --- Device Detection, Camera Startup, and UI logic (mostly unchanged) ---
-function isMobile() {
-  /* ... unchanged ... */ return (
-    ("ontouchstart" in window || navigator.maxTouchPoints > 0) &&
-    /Mobi|Android|iPhone/i.test(navigator.userAgent)
-  );
-}
-async function startCamera() {
-  /* ... unchanged ... */
-}
-function cleanupUI() {
-  /* ... unchanged ... */
-}
-function handleCaptureClick(event) {
-  /* ... unchanged ... */
-}
-function createCropBox(x, y) {
-  /* ... unchanged ... */
-}
-function createActionButtons() {
-  /* ... unchanged ... */
-}
-function startDrag(e) {
-  /* ... unchanged ... */
-}
-function drag(e) {
-  /* ... unchanged ... */
-}
-function endDrag() {
-  /* ... unchanged ... */
-}
-
-// --- Main Application Logic ---
+// --- Main Application Logic & Unchanged Functions ---
 if (isMobile()) {
-  initialize(); // Start loading dictionary and Tesseract
+  initialize();
   startCamera();
   cameraContainer.addEventListener("click", handleCaptureClick);
 } else {
@@ -166,7 +160,12 @@ if (isMobile()) {
   desktopView.style.display = "flex";
 }
 
-// --- Unchanged function implementations (for brevity) ---
+function isMobile() {
+  return (
+    ("ontouchstart" in window || navigator.maxTouchPoints > 0) &&
+    /Mobi|Android|iPhone/i.test(navigator.userAgent)
+  );
+}
 async function startCamera() {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({

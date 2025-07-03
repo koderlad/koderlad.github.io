@@ -22,13 +22,12 @@ let dictionary = null;
 let tesseractWorker = null;
 let isInitialized = false;
 
-// --- Initialization ---
+// --- Initialization (no changes) ---
 async function initialize() {
   await Promise.all([createTesseractWorker(), loadDictionary()]);
   isInitialized = true;
   console.log("Lexilens is ready!");
 }
-
 async function createTesseractWorker() {
   tesseractWorker = await Tesseract.createWorker("eng", 1, {
     workerPath: "lib/worker.min.js",
@@ -39,7 +38,6 @@ async function createTesseractWorker() {
   });
   console.log("Tesseract worker created from local files.");
 }
-
 async function loadDictionary() {
   try {
     const response = await fetch("dictionary.json");
@@ -61,21 +59,14 @@ function lookupWord(word) {
   return dictionary[cleanWord] || "Definition not found.";
 }
 
-// *** MODIFIED FUNCTION: INFORMATIVE ALERTS FOR DEBUGGING ***
-async function recognizeText(imageData) {
+// --- OCR Function (no changes from previous debugging version, but will now receive a valid image) ---
+async function recognizeText(image) {
   try {
-    const { data } = await tesseractWorker.recognize(imageData);
-    // SUCCESS ALERT: This will run if the OCR completes without crashing.
-    alert(
-      `OCR SUCCESS:\n\nText: "${data.text.trim()}"\nConfidence: ${data.confidence.toFixed(
-        2
-      )}%`
-    );
+    const { data } = await tesseractWorker.recognize(image);
     return data;
   } catch (error) {
-    // CRASH ALERT: This will run if the OCR process fails.
-    alert(`OCR CRASHED:\n\nError: ${JSON.stringify(error)}`);
-    console.error("Actual Tesseract Error:", error);
+    console.error("OCR Error:", error);
+    alert("OCR process failed. See console for details."); // Keep an alert for unexpected errors
     return null;
   }
 }
@@ -93,17 +84,8 @@ function showResult(recognizedWord, definition) {
   loader.classList.add("hidden");
   resultBox.classList.remove("hidden");
 }
-function preprocessImage(imageData) {
-  const data = imageData.data;
-  for (let i = 0; i < data.length; i += 4) {
-    const grayscale =
-      data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
-    const color = grayscale < 128 ? 0 : 255;
-    data[i] = data[i + 1] = data[i + 2] = color;
-  }
-  return imageData;
-}
 
+// *** MODIFIED FUNCTION: THE FINAL, CORRECT IMPLEMENTATION ***
 async function handleConfirm() {
   if (!isInitialized) {
     alert("Please wait a moment for the app to initialize.");
@@ -118,27 +100,46 @@ async function handleConfirm() {
 
   showLoader(true);
 
+  // --- The New, Robust Method ---
+  // 1. Get the coordinates and dimensions of the crop box.
   const parentRect = cameraContainer.getBoundingClientRect();
-  const imageData = ctx.getImageData(
-    rect.left - parentRect.top,
-    rect.top - parentRect.top,
-    rect.width,
-    rect.height
-  );
-  const processedImageData = preprocessImage(imageData);
+  const cropX = rect.left - parentRect.left;
+  const cropY = rect.top - parentRect.top;
+  const cropWidth = rect.width;
+  const cropHeight = rect.height;
 
-  // This will now trigger one of our new alerts.
-  const result = await recognizeText(processedImageData);
+  // 2. Create a new, temporary canvas in memory.
+  const tempCanvas = document.createElement("canvas");
+  const tempCtx = tempCanvas.getContext("2d", { willReadFrequently: true }); // Optimization for reading data
+  tempCanvas.width = cropWidth;
+  tempCanvas.height = cropHeight;
+
+  // 3. Draw *only the cropped part* of the main canvas onto the temporary canvas.
+  // This effectively "slices" the image.
+  tempCtx.drawImage(
+    canvas, // The source canvas
+    cropX,
+    cropY,
+    cropWidth,
+    cropHeight, // Source rectangle (sx, sy, sWidth, sHeight)
+    0,
+    0,
+    cropWidth,
+    cropHeight // Destination rectangle (dx, dy, dWidth, dHeight)
+  );
+  // --- End of New Method ---
+
+  // 4. Send the NEW canvas element to Tesseract. This is much more reliable.
+  const result = await recognizeText(tempCanvas);
 
   if (result && result.text.trim()) {
     const recognizedWord = result.text.trim();
     const definition = lookupWord(recognizedWord);
     showResult(recognizedWord, definition);
   } else {
-    // If OCR returned nothing or crashed, show a user-friendly message.
     showResult(
       "Not Found",
-      "Could not read the text. Please try again with a clearer image and more precise cropping."
+      "Could not read the text. Try for a clearer image and more precise cropping."
     );
   }
 
@@ -222,7 +223,6 @@ function createActionButtons() {
   const cancelBtn = document.createElement("button");
   cancelBtn.id = "cancel-btn";
   cancelBtn.className = "action-button";
-  cancelBtn.innerText = "❌ Cancel";
   cancelBtn.onclick = () => {
     cleanupUI();
     videoElement.play();

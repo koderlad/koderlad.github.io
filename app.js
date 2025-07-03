@@ -29,14 +29,12 @@ async function initialize() {
   console.log("Lexilens is ready!");
 }
 
-// *** MODIFIED FUNCTION: Tell Tesseract where to find local files ***
 async function createTesseractWorker() {
   tesseractWorker = await Tesseract.createWorker("eng", 1, {
-    // These paths are relative to your app's root.
     workerPath: "lib/worker.min.js",
     langPath: "lib/",
     corePath:
-      "https://cdn.jsdelivr.net/npm/tesseract.js-core@5/tesseract-core.wasm.js", // Core can often still be loaded from CDN
+      "https://cdn.jsdelivr.net/npm/tesseract.js-core@5/tesseract-core.wasm.js",
     logger: (m) => console.log(m),
   });
   console.log("Tesseract worker created from local files.");
@@ -63,13 +61,21 @@ function lookupWord(word) {
   return dictionary[cleanWord] || "Definition not found.";
 }
 
-// *** RESTORED FUNCTION: Cleaned up debugging alert ***
+// *** MODIFIED FUNCTION: INFORMATIVE ALERTS FOR DEBUGGING ***
 async function recognizeText(imageData) {
   try {
     const { data } = await tesseractWorker.recognize(imageData);
+    // SUCCESS ALERT: This will run if the OCR completes without crashing.
+    alert(
+      `OCR SUCCESS:\n\nText: "${data.text.trim()}"\nConfidence: ${data.confidence.toFixed(
+        2
+      )}%`
+    );
     return data;
   } catch (error) {
-    console.error("OCR Error:", error);
+    // CRASH ALERT: This will run if the OCR process fails.
+    alert(`OCR CRASHED:\n\nError: ${JSON.stringify(error)}`);
+    console.error("Actual Tesseract Error:", error);
     return null;
   }
 }
@@ -121,6 +127,7 @@ async function handleConfirm() {
   );
   const processedImageData = preprocessImage(imageData);
 
+  // This will now trigger one of our new alerts.
   const result = await recognizeText(processedImageData);
 
   if (result && result.text.trim()) {
@@ -128,9 +135,10 @@ async function handleConfirm() {
     const definition = lookupWord(recognizedWord);
     showResult(recognizedWord, definition);
   } else {
+    // If OCR returned nothing or crashed, show a user-friendly message.
     showResult(
       "Not Found",
-      "Could not read the text. Please try for a clearer image."
+      "Could not read the text. Please try again with a clearer image and more precise cropping."
     );
   }
 
@@ -296,5 +304,5 @@ function endDrag() {
   document.removeEventListener("mousemove", drag);
   document.removeEventListener("touchmove", drag);
   document.addEventListener("mouseup", endDrag);
-  document.removeEventListener("touchend", endDrag);
+  document.addEventListener("touchend", endDrag);
 }

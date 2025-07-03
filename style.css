@@ -1,35 +1,115 @@
-/* Basic reset to remove default browser margins and padding */
+/* Basic reset */
 body,
 html {
   margin: 0;
   padding: 0;
   width: 100%;
   height: 100%;
-  overflow: hidden; /* Prevents scrollbars */
-  background-color: #000; /* Black background for a clean look */
+  overflow: hidden;
+  background-color: #000;
 }
 
+/* --- Camera and Container Styles --- */
 #camera-container {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
+  /* Position relative is crucial for positioning children elements like the canvas and crop box */
+  position: relative;
 }
 
 #camera-feed {
   width: 100%;
   height: 100%;
-  /* This is the key to making the video fill the screen without stretching.
-       It will crop the video feed to fit, similar to 'background-size: cover'. */
   object-fit: cover;
 }
 
-/* ... (keep all the previous styles) ... */
+#capture-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: none; /* Hidden by default */
+}
 
-/* Styles for the desktop-only landing page view */
+/* --- Crop Box and Handles Styles --- */
+#crop-box {
+  position: absolute;
+  border: 2px dashed #00ff00; /* Bright green dashed line */
+  box-sizing: border-box; /* Ensures border is included in the element's width/height */
+  cursor: move;
+}
+
+.handle {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  background-color: rgba(0, 255, 0, 0.7);
+  border: 1px solid #fff;
+  border-radius: 2px;
+}
+
+/* Position each handle and set its resize cursor */
+.handle.top-left {
+  top: -8px;
+  left: -8px;
+  cursor: nwse-resize;
+}
+.handle.top-right {
+  top: -8px;
+  right: -8px;
+  cursor: nesw-resize;
+}
+.handle.bottom-left {
+  bottom: -8px;
+  left: -8px;
+  cursor: nesw-resize;
+}
+.handle.bottom-right {
+  bottom: -8px;
+  right: -8px;
+  cursor: nwse-resize;
+}
+
+/* --- Action Buttons Styles --- */
+#ui-container {
+  position: absolute;
+  bottom: 30px;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  z-index: 10;
+}
+
+.action-button {
+  padding: 15px 30px;
+  font-size: 18px;
+  font-weight: bold;
+  border: none;
+  border-radius: 50px;
+  color: white;
+  cursor: pointer;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  transition: transform 0.1s ease;
+}
+.action-button:active {
+  transform: scale(0.95);
+}
+
+#confirm-btn {
+  background-color: #007bff;
+}
+#cancel-btn {
+  background-color: #dc3545;
+}
+
+/* --- Desktop View Styles (no changes) --- */
 #desktop-view {
-  display: none; /* Hidden by default, enabled via JS */
+  display: none;
   width: 100%;
   height: 100%;
   justify-content: center;
@@ -39,22 +119,18 @@ html {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   text-align: center;
 }
-
 .desktop-content {
   max-width: 500px;
   padding: 20px;
 }
-
 .desktop-content h1 {
   font-size: 3rem;
   color: #1a1a1a;
 }
-
 .desktop-content p {
   font-size: 1.2rem;
   line-height: 1.6;
 }
-
 .desktop-content .promo {
   margin-top: 30px;
   font-size: 1rem;

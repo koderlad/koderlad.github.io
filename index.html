@@ -6,37 +6,27 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, user-scalable=no"
     />
-    <title>LexiLens</title>
+    <title>Lexilens</title>
     <link rel="stylesheet" href="style.css" />
-    <link rel="manifest" href="manifest.json" />
   </head>
   <body>
-    <div id="app-container">
-      <!-- The live camera feed will be shown here -->
-      <video id="camera-feed" autoplay playsinline></video>
-      <canvas id="snapshot-canvas" style="display: none"></canvas>
-      <div id="interaction-overlay">
-        <div id="selection-box"></div>
-        <div id="confirm-buttons">
-          <button id="btn-reject">✖</button>
-          <button id="btn-confirm">✔</button>
-        </div>
+    <!-- This container is for the main mobile app experience -->
+    <div id="camera-container">
+      <video id="camera-feed" autoplay playsinline muted></video>
+    </div>
+
+    <!-- This container is for the desktop landing page view -->
+    <div id="desktop-view">
+      <div class="desktop-content">
+        <h1>Lexilens</h1>
+        <p>Your on-the-go reading assistant.</p>
+        <p class="promo">
+          This app is designed for mobile. Please open it on your phone's
+          browser to start defining words with your camera.
+        </p>
       </div>
     </div>
 
-    <!-- This is the new div for desktop users -->
-    <div id="desktop-message">
-      <h1>Welcome to LexiLens</h1>
-      <p>This application is designed for mobile browsers.</p>
-      <p>Please visit this page on your phone to use the camera feature.</p>
-    </div>
-
-    <div id="results-panel">
-      <h2 id="result-word">Word</h2>
-      <p id="result-definition">The definition of the word will appear here.</p>
-      <button id="btn-close-results">Close</button>
-    </div>
-
-    <script src="app.js"></script>
+    <script src="app.js" defer></script>
   </body>
 </html>

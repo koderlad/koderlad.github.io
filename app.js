@@ -20,14 +20,13 @@ let cropBox = null,
   activeHandle = null;
 let dictionary = null;
 let tesseractWorker = null;
-let isInitialized = false; // NEW state to track initialization
+let isInitialized = false;
 
-// --- Initialization ---
+// --- Initialization (no changes) ---
 async function initialize() {
   await Promise.all([createTesseractWorker(), loadDictionary()]);
-  isInitialized = true; // Set our flag to true when done
+  isInitialized = true;
   console.log("Lexilens is ready!");
-  // You could show a "Ready" message to the user here if you wanted.
 }
 async function createTesseractWorker() {
   tesseractWorker = await Tesseract.createWorker("eng", 1, {
@@ -56,14 +55,16 @@ function lookupWord(word) {
   return dictionary[cleanWord] || "Definition not found.";
 }
 
-// --- OCR Function (no changes) ---
+// *** MODIFIED FUNCTION: CATCHES AND ALERTS THE REAL ERROR ***
 async function recognizeText(imageData) {
   try {
     const { data } = await tesseractWorker.recognize(imageData);
-    return data;
+    return data; // If successful, return the data.
   } catch (error) {
-    console.error("OCR Error:", error);
-    return null;
+    // If it fails, show the actual error message from Tesseract.
+    alert(`TESSERACT CRASHED:\n\n${error.message}`);
+    console.error("Actual Tesseract Error:", error);
+    return null; // Return null so the rest of the app knows it failed.
   }
 }
 
@@ -91,58 +92,42 @@ function preprocessImage(imageData) {
   return imageData;
 }
 
-// *** MODIFIED FUNCTION WITH ROBUST CHECKS ***
 async function handleConfirm() {
-  // --- NEW CHECKS ADDED HERE ---
   if (!isInitialized) {
-    alert(
-      "Please wait a moment for the app to initialize before trying again."
-    );
+    alert("Please wait a moment for the app to initialize.");
     return;
   }
-
   const rect = cropBox.getBoundingClientRect();
-  const parentRect = cameraContainer.getBoundingClientRect();
-
-  const cropWidth = rect.width;
-  const cropHeight = rect.height;
-
-  if (cropWidth <= 0 || cropHeight <= 0) {
-    alert("The crop box has an invalid size. Please draw a valid box.");
+  if (rect.width <= 0 || rect.height <= 0) {
+    alert("The crop box has an invalid size.");
     cleanupUI();
     videoElement.play();
     return;
   }
-  // --- END OF NEW CHECKS ---
 
   showLoader(true);
 
-  const cropX = rect.left - parentRect.left;
-  const cropY = rect.top - parentRect.top;
-
-  const imageData = ctx.getImageData(cropX, cropY, cropWidth, cropHeight);
+  const parentRect = cameraContainer.getBoundingClientRect();
+  const imageData = ctx.getImageData(
+    rect.left - parentRect.left,
+    rect.top - parentRect.top,
+    rect.width,
+    rect.height
+  );
   const processedImageData = preprocessImage(imageData);
 
+  // This will now show the detailed error if it crashes.
   const result = await recognizeText(processedImageData);
 
-  // The alert for debugging can remain for now.
+  // This part of the logic now only runs if the OCR didn't crash.
   if (result) {
-    alert(
-      `OCR Result:\n\nText: "${result.text.trim()}"\nConfidence: ${result.confidence.toFixed(
-        2
-      )}%`
-    );
-  } else {
-    alert("OCR failed completely. No result object.");
-  }
-
-  const recognizedWord = result ? result.text.trim() : "";
-
-  if (recognizedWord) {
+    const recognizedWord = result.text.trim();
     const definition = lookupWord(recognizedWord);
     showResult(recognizedWord, definition);
   } else {
-    showResult("Error", "Could not recognize any text. Please try again.");
+    // If result is null (because the OCR crashed), we just hide the loader.
+    showLoader(false);
+    videoElement.play();
   }
 
   cleanupUI();

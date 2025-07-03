@@ -18,6 +18,7 @@ document.addEventListener("DOMContentLoaded", () => {
     initializeApp();
   } else {
     // DESKTOP PATH: Show the static message.
+    console.log("Desktop device detected. Displaying message.");
     displayDesktopMessage();
   }
 

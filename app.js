@@ -49,7 +49,6 @@ async function loadDictionary() {
 // --- Word Lookup (no changes) ---
 function lookupWord(word) {
   if (!dictionary) return "Dictionary not loaded.";
-  // Clean up the word before lookup: lowercase and remove non-alphabetic characters
   const cleanWord = word.toLowerCase().replace(/[^a-z]/g, "");
   return dictionary[cleanWord] || "Definition not found.";
 }
@@ -65,39 +64,27 @@ async function recognizeText(imageData) {
   }
 }
 
-// --- UI and Event Handlers ---
+// --- UI and Event Handlers (no changes) ---
 function showLoader(visible) {
   overlay.classList.toggle("visible", visible);
   loader.classList.toggle("hidden", !visible);
   resultBox.classList.toggle("hidden", true);
 }
-
-// *** MODIFIED FUNCTION ***
 function showResult(recognizedWord, definition) {
-  // Show the user exactly what the OCR saw.
   resultWordEl.innerText = recognizedWord;
   resultDefinitionEl.innerText = definition;
   overlay.classList.add("visible");
   loader.classList.add("hidden");
   resultBox.classList.remove("hidden");
 }
-
-// *** NEW FUNCTION: Image Pre-processing ***
 function preprocessImage(imageData) {
   const data = imageData.data;
   for (let i = 0; i < data.length; i += 4) {
-    // Convert to grayscale using the luminosity method
     const grayscale =
       data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
-
-    // Apply thresholding to make it pure black or white
-    // A threshold of 128 is a common starting point.
-    const threshold = 128;
-    const color = grayscale < threshold ? 0 : 255;
-
+    const color = grayscale < 128 ? 0 : 255;
     data[i] = data[i + 1] = data[i + 2] = color;
   }
-  // The alpha channel (data[i + 3]) is left untouched.
   return imageData;
 }
 
@@ -113,31 +100,34 @@ async function handleConfirm() {
   const cropWidth = rect.width;
   const cropHeight = rect.height;
 
-  // Get the image data from the canvas for the cropped area
   const imageData = ctx.getImageData(cropX, cropY, cropWidth, cropHeight);
-
-  // **NEW STEP**: Pre-process the image for better accuracy
   const processedImageData = preprocessImage(imageData);
 
-  // Perform OCR on the PROCESSED image
   const result = await recognizeText(processedImageData);
 
-  // *** DEBUGGING LINE ***
-  // This will show us the full result from Tesseract, including confidence score.
-  console.log("Tesseract Result:", result);
+  // =========================================================
+  //  NEW DEBUGGING ALERT IS HERE
+  // =========================================================
+  if (result) {
+    alert(
+      `OCR Result:\n\nText: "${result.text.trim()}"\nConfidence: ${result.confidence.toFixed(
+        2
+      )}%`
+    );
+  } else {
+    alert("OCR failed completely. No result object.");
+  }
+  // =========================================================
 
   const recognizedWord = result ? result.text.trim() : "";
 
-  // Lookup definition
   if (recognizedWord) {
     const definition = lookupWord(recognizedWord);
-    // We pass the RAW recognized word to showResult for debugging
     showResult(recognizedWord, definition);
   } else {
     showResult("Error", "Could not recognize any text. Please try again.");
   }
 
-  // Clean up the crop UI
   if (cropBox) cropBox.remove();
   if (uiContainer) uiContainer.remove();
   cropBox = null;
@@ -159,7 +149,6 @@ if (isMobile()) {
   cameraContainer.style.display = "none";
   desktopView.style.display = "flex";
 }
-
 function isMobile() {
   return (
     ("ontouchstart" in window || navigator.maxTouchPoints > 0) &&
@@ -304,6 +293,6 @@ function endDrag() {
   activeHandle = null;
   document.removeEventListener("mousemove", drag);
   document.removeEventListener("touchmove", drag);
-  document.removeEventListener("mouseup", endDrag);
-  document.removeEventListener("touchend", endDrag);
+  document.addEventListener("mouseup", endDrag);
+  document.addEventListener("touchend", endDrag);
 }

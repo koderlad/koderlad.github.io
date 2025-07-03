@@ -10,24 +10,27 @@
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <!-- This container is for the main mobile app experience -->
     <div id="camera-container">
       <video id="camera-feed" autoplay playsinline muted></video>
-      <!-- Canvas to draw the frozen frame onto. Hidden by default. -->
       <canvas id="capture-canvas"></canvas>
-    </div>
 
-    <!-- This container is for the desktop landing page view -->
-    <div id="desktop-view">
-      <div class="desktop-content">
-        <h1>Lexilens</h1>
-        <p>Your on-the-go reading assistant.</p>
-        <p class="promo">
-          This app is designed for mobile. Please open it on your phone's
-          browser to start defining words with your camera.
-        </p>
+      <!-- Loading spinner and Result display, hidden by default -->
+      <div id="overlay">
+        <div id="loader" class="hidden"></div>
+        <div id="result-box" class="hidden">
+          <h2 id="result-word"></h2>
+          <p id="result-definition"></p>
+          <button id="close-result-btn">Close</button>
+        </div>
       </div>
     </div>
+
+    <div id="desktop-view">
+      <!-- ... (desktop content is unchanged) ... -->
+    </div>
+
+    <!-- Tesseract.js from a CDN. This must be before our app.js -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
     <script src="app.js" defer></script>
   </body>

@@ -46,13 +46,33 @@ document.addEventListener("DOMContentLoaded", () => {
     // --- CORE APP LOGIC ---
 
     /**
-     * Analyzes the canvas pixels at a tap location to find the bounding box of a word.
-     * This is a simplified computer vision algorithm.
-     * @param {number} tapX - The x-coordinate of the user's tap.
-     * @param {number} tapY - The y-coordinate of the user's tap.
-     * @returns {object|null} An object with {x, y, width, height} of the word, or null.
+     * NEW: Calculates the scale and offset of the video due to 'object-fit: cover'.
+     * This is crucial for correctly mapping screen coordinates to video coordinates.
+     * @returns {object} An object with { scale, offsetX, offsetY }.
      */
+    function calculateScaleAndOffset() {
+      const videoRatio = video.videoWidth / video.videoHeight;
+      const containerRatio = video.clientWidth / video.clientHeight;
+      let scale = 1;
+      let offsetX = 0;
+      let offsetY = 0;
+
+      if (videoRatio > containerRatio) {
+        // Video is wider than container, it's scaled to fit height and cropped horizontally.
+        scale = video.clientHeight / video.videoHeight;
+        const scaledWidth = video.videoWidth * scale;
+        offsetX = (video.clientWidth - scaledWidth) / 2;
+      } else {
+        // Video is taller than container, it's scaled to fit width and cropped vertically.
+        scale = video.clientWidth / video.videoWidth;
+        const scaledHeight = video.videoHeight * scale;
+        offsetY = (video.clientHeight - scaledHeight) / 2;
+      }
+      return { scale, offsetX, offsetY };
+    }
+
     function findWordAt(tapX, tapY) {
+      const { scale, offsetX, offsetY } = calculateScaleAndOffset();
       const imageData = ctx.getImageData(
         0,
         0,
@@ -60,48 +80,49 @@ document.addEventListener("DOMContentLoaded", () => {
         snapshotCanvas.height
       );
       const { data, width, height } = imageData;
-      const PIXEL_DENSITY = window.devicePixelRatio || 1;
 
-      // Convert viewport coordinates to canvas pixel coordinates
-      const canvasX = Math.round(tapX * (width / video.clientWidth));
-      const canvasY = Math.round(tapY * (height / video.clientHeight));
+      // Convert viewport tap coordinates to native canvas pixel coordinates, accounting for offset and scale.
+      const canvasX = Math.round((tapX - offsetX) / scale);
+      const canvasY = Math.round((tapY - offsetY) / scale);
 
-      // Function to get the brightness of a pixel. We assume dark text on a light background.
-      // A simple formula for grayscale is 0.299*R + 0.587*G + 0.114*B
       function isTextPixel(x, y) {
         if (x < 0 || x >= width || y < 0 || y >= height) return false;
         const i = (y * width + x) * 4;
         const brightness =
           0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
-        return brightness < 128; // Threshold: 128 is a common middle-ground
+        return brightness < 128;
       }
 
-      // If the tapped pixel itself isn't text, we can't start.
       if (!isTextPixel(canvasX, canvasY)) {
         console.log("Tap was not on a text pixel.");
         return null;
       }
 
-      // Scan left from the tap point to find the start of the word
       let startX = canvasX;
       while (startX > 0 && isTextPixel(startX - 1, canvasY)) {
         startX--;
       }
 
-      // Scan right from the tap point to find the end of the word
       let endX = canvasX;
-      while (endX < width && isTextPixel(endX + 1, canvasY)) {
+      while (endX < width - 1 && isTextPixel(endX + 1, canvasY)) {
         endX++;
       }
 
-      // For now, use a fixed vertical height. A more advanced version could scan vertically too.
-      const lineHeight = 30 * PIXEL_DENSITY; // Estimate line height
+      // We'll also do a quick vertical scan for better height calculation.
+      let startY = canvasY;
+      while (startY > 0 && isTextPixel(startX, startY - 1)) {
+        startY--;
+      }
+      let endY = canvasY;
+      while (endY < height - 1 && isTextPixel(startX, endY + 1)) {
+        endY++;
+      }
 
-      // Convert canvas pixel coordinates back to viewport CSS pixels
-      const boxX = startX * (video.clientWidth / width);
-      const boxY = (canvasY - lineHeight / 2) * (video.clientHeight / height);
-      const boxWidth = (endX - startX) * (video.clientWidth / width);
-      const boxHeight = lineHeight * (video.clientHeight / height);
+      // Convert the found canvas coordinates back to CSS viewport pixels for the box.
+      const boxX = startX * scale + offsetX;
+      const boxY = startY * scale + offsetY;
+      const boxWidth = (endX - startX) * scale;
+      const boxHeight = (endY - startY) * scale;
 
       return { x: boxX, y: boxY, width: boxWidth, height: boxHeight };
     }
@@ -121,13 +142,13 @@ document.addEventListener("DOMContentLoaded", () => {
       const touch = event.touches[0];
       const wordBox = findWordAt(touch.clientX, touch.clientY);
 
-      if (wordBox) {
+      if (wordBox && wordBox.width > 0 && wordBox.height > 0) {
         selectionBox.style.left = `${wordBox.x}px`;
         selectionBox.style.top = `${wordBox.y}px`;
         selectionBox.style.width = `${wordBox.width}px`;
         selectionBox.style.height = `${wordBox.height}px`;
       } else {
-        // If no word is found, fallback to the simple box at tap location
+        // Fallback box if word finding fails.
         const boxSize = 100;
         selectionBox.style.left = `${touch.clientX - boxSize / 2}px`;
         selectionBox.style.top = `${touch.clientY - boxSize / 2}px`;

@@ -1,0 +1,98 @@
+:root {
+  --primary-color: #007aff;
+  --light-gray: #f0f0f0;
+  --dark-gray: #333;
+  --overlay-bg: rgba(0, 0, 0, 0.6);
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+}
+
+#app-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  background: black;
+}
+
+#camera-feed {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+#interaction-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: none; /* Hidden by default, shown on tap */
+}
+
+#selection-box {
+  position: absolute;
+  border: 2px dashed var(--primary-color);
+  background-color: rgba(0, 122, 255, 0.2);
+  box-sizing: border-box;
+  /* Position and size will be set by JavaScript */
+}
+
+#confirm-buttons {
+  position: absolute;
+  bottom: 50px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 30px;
+}
+
+#confirm-buttons button {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: none;
+  font-size: 28px;
+  color: white;
+  cursor: pointer;
+}
+
+#btn-reject {
+  background-color: #ff3b30; /* Red */
+}
+
+#btn-confirm {
+  background-color: #34c759; /* Green */
+}
+
+#results-panel {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background-color: white;
+  padding: 20px;
+  box-sizing: border-box;
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+  transform: translateY(100%); /* Start hidden at the bottom */
+  transition: transform 0.3s ease-in-out;
+  z-index: 100;
+}
+
+#results-panel.visible {
+  transform: translateY(0);
+}
+
+#result-word {
+  margin-top: 0;
+  color: var(--dark-gray);
+}

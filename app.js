@@ -7,12 +7,12 @@ const ctx = canvas.getContext("2d");
 const overlay = document.getElementById("overlay");
 const loader = document.getElementById("loader");
 const resultBox = document.getElementById("result-box");
-const resultWordInput = document.getElementById("result-word-input"); // New input field
+const resultWordInput = document.getElementById("result-word-input");
 const resultDefinitionEl = document.getElementById("result-definition");
 const closeResultBtn = document.getElementById("close-result-btn");
-const lookupBtn = document.getElementById("lookup-btn"); // New lookup button
+const lookupBtn = document.getElementById("lookup-btn");
 
-// --- State Variables (no changes) ---
+// --- State Variables ---
 let cropBox = null,
   uiContainer = null,
   isDragging = false,
@@ -22,6 +22,7 @@ let cropBox = null,
 let dictionary = null;
 let tesseractWorker = null;
 let isInitialized = false;
+let isCaptureModeActive = false; // *** NEW: State flag to prevent multiple boxes ***
 
 // --- Initialization (no changes) ---
 async function initialize() {
@@ -53,13 +54,12 @@ async function loadDictionary() {
   }
 }
 
-// --- Core Functions ---
+// --- Core Functions (no changes) ---
 function lookupWord(word) {
   if (!dictionary) return "Dictionary not loaded.";
   const cleanWord = word.toLowerCase().replace(/[^a-z]/g, "");
   return dictionary[cleanWord] || "Definition not found.";
 }
-
 async function recognizeText(image) {
   try {
     const { data } = await tesseractWorker.recognize(image);
@@ -76,18 +76,16 @@ function showLoader(visible) {
   loader.classList.toggle("hidden", !visible);
   resultBox.classList.toggle("hidden", true);
 }
-
-// *** MODIFIED to show the editable input field ***
 function showResult(recognizedWord) {
-  resultWordInput.value = recognizedWord; // Set the input field value
+  resultWordInput.value = recognizedWord;
   resultDefinitionEl.innerText =
-    "Edit the word above if needed, then press 'Look Up'."; // Reset definition
+    "Edit the word above if needed, then press 'Look Up'.";
   overlay.classList.add("visible");
   loader.classList.add("hidden");
   resultBox.classList.remove("hidden");
 }
 
-// *** MODIFIED handleConfirm: now only does OCR ***
+// *** MODIFIED handleConfirm ***
 async function handleConfirm() {
   if (!isInitialized) {
     alert("Please wait a moment for the app to initialize.");
@@ -99,9 +97,7 @@ async function handleConfirm() {
     videoElement.play();
     return;
   }
-
   showLoader(true);
-
   const parentRect = cameraContainer.getBoundingClientRect();
   const tempCanvas = document.createElement("canvas");
   const tempCtx = tempCanvas.getContext("2d", { willReadFrequently: true });
@@ -109,7 +105,7 @@ async function handleConfirm() {
   tempCanvas.height = rect.height;
   tempCtx.drawImage(
     canvas,
-    rect.left - parentRect.left,
+    rect.left - parentRect.top,
     rect.top - parentRect.top,
     rect.width,
     rect.height,
@@ -118,17 +114,12 @@ async function handleConfirm() {
     rect.width,
     rect.height
   );
-
   const result = await recognizeText(tempCanvas);
-  const recognizedText = result ? result.text.trim() : "error";
-
-  // Show the result in the editable input field
+  const recognizedText = result ? result.text.trim() : "";
   showResult(recognizedText);
-
-  cleanupUI();
+  cleanupUI(); // This will now reset our state flag
 }
 
-// *** NEW function to handle the lookup button click ***
 function handleLookup() {
   const word = resultWordInput.value.trim();
   if (!word) {
@@ -138,14 +129,12 @@ function handleLookup() {
   const definition = lookupWord(word);
   resultDefinitionEl.innerText = definition;
 }
-
-// Wire up the new button
 lookupBtn.onclick = handleLookup;
 
-// *** MODIFIED close button to reset UI completely ***
 closeResultBtn.onclick = () => {
-  overlay.classList.remove("visible"); // Hide the entire overlay
-  videoElement.play(); // Resume camera feed
+  overlay.classList.remove("visible");
+  videoElement.play();
+  isCaptureModeActive = false; // Also reset state here for safety
 };
 
 // --- Main Application Logic & Unchanged Functions ---
@@ -179,7 +168,15 @@ async function startCamera() {
     alert("Could not access camera.");
   }
 }
+
+// *** MODIFIED handleCaptureClick ***
 function handleCaptureClick(event) {
+  // NEW: Guard clause to check if we're already in capture mode.
+  if (isCaptureModeActive) {
+    return; // Do nothing if a box is already on screen.
+  }
+  isCaptureModeActive = true; // Set the flag immediately
+
   event.preventDefault();
   videoElement.pause();
   ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
@@ -190,6 +187,7 @@ function handleCaptureClick(event) {
   createCropBox(x, y);
   createActionButtons();
 }
+
 function createCropBox(x, y) {
   cropBox = document.createElement("div");
   cropBox.id = "crop-box";
@@ -209,6 +207,7 @@ function createCropBox(x, y) {
   cropBox.addEventListener("mousedown", startDrag);
   cropBox.addEventListener("touchstart", startDrag, { passive: false });
 }
+
 function createActionButtons() {
   uiContainer = document.createElement("div");
   uiContainer.id = "ui-container";
@@ -222,20 +221,24 @@ function createActionButtons() {
   cancelBtn.className = "action-button";
   cancelBtn.innerText = "❌ Cancel";
   cancelBtn.onclick = () => {
-    cleanupUI();
+    cleanupUI(); // This will reset our state flag
     videoElement.play();
   };
   uiContainer.appendChild(cancelBtn);
   uiContainer.appendChild(confirmBtn);
   cameraContainer.appendChild(uiContainer);
 }
+
+// *** MODIFIED cleanupUI ***
 function cleanupUI() {
   if (cropBox) cropBox.remove();
   if (uiContainer) uiContainer.remove();
   cropBox = null;
   uiContainer = null;
   canvas.style.display = "none";
+  isCaptureModeActive = false; // NEW: Reset the flag when UI is cleared.
 }
+
 function startDrag(e) {
   e.preventDefault();
   e.stopPropagation();

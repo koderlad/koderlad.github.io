@@ -22,7 +22,7 @@ let cropBox = null,
 let dictionary = null;
 let tesseractWorker = null;
 let isInitialized = false;
-let isCaptureModeActive = false; // *** NEW: State flag to prevent multiple boxes ***
+let isCaptureModeActive = false;
 
 // --- Initialization (no changes) ---
 async function initialize() {
@@ -85,7 +85,6 @@ function showResult(recognizedWord) {
   resultBox.classList.remove("hidden");
 }
 
-// *** MODIFIED handleConfirm ***
 async function handleConfirm() {
   if (!isInitialized) {
     alert("Please wait a moment for the app to initialize.");
@@ -93,8 +92,7 @@ async function handleConfirm() {
   }
   const rect = cropBox.getBoundingClientRect();
   if (rect.width <= 0 || rect.height <= 0) {
-    cleanupUI();
-    videoElement.play();
+    resetToCameraView();
     return;
   }
   showLoader(true);
@@ -117,7 +115,7 @@ async function handleConfirm() {
   const result = await recognizeText(tempCanvas);
   const recognizedText = result ? result.text.trim() : "";
   showResult(recognizedText);
-  cleanupUI(); // This will now reset our state flag
+  cleanupUI();
 }
 
 function handleLookup() {
@@ -129,15 +127,15 @@ function handleLookup() {
   const definition = lookupWord(word);
   resultDefinitionEl.innerText = definition;
 }
-lookupBtn.onclick = handleLookup;
 
-closeResultBtn.onclick = () => {
-  overlay.classList.remove("visible");
-  videoElement.play();
-  isCaptureModeActive = false; // Also reset state here for safety
-};
+// *** NEW: Central function to reset the entire UI to the camera view ***
+function resetToCameraView() {
+  overlay.classList.remove("visible"); // Hides loader and result box
+  cleanupUI(); // Removes crop box, buttons, and resets state
+  videoElement.play(); // Restarts the live camera feed
+}
 
-// --- Main Application Logic & Unchanged Functions ---
+// --- Main Application Logic & UI Creation ---
 if (isMobile()) {
   initialize();
   startCamera();
@@ -169,14 +167,20 @@ async function startCamera() {
   }
 }
 
-// *** MODIFIED handleCaptureClick ***
-function handleCaptureClick(event) {
-  // NEW: Guard clause to check if we're already in capture mode.
-  if (isCaptureModeActive) {
-    return; // Do nothing if a box is already on screen.
-  }
-  isCaptureModeActive = true; // Set the flag immediately
+// *** MODIFIED: Added stopPropagation to all button clicks ***
+lookupBtn.onclick = (event) => {
+  event.stopPropagation();
+  handleLookup();
+};
 
+closeResultBtn.onclick = (event) => {
+  event.stopPropagation();
+  resetToCameraView();
+};
+
+function handleCaptureClick(event) {
+  if (isCaptureModeActive) return;
+  isCaptureModeActive = true;
   event.preventDefault();
   videoElement.pause();
   ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
@@ -215,28 +219,30 @@ function createActionButtons() {
   confirmBtn.id = "confirm-btn";
   confirmBtn.className = "action-button";
   confirmBtn.innerText = "✅ Confirm";
-  confirmBtn.onclick = handleConfirm;
+  confirmBtn.onclick = (event) => {
+    event.stopPropagation(); // Stop click from reaching container
+    handleConfirm();
+  };
   const cancelBtn = document.createElement("button");
   cancelBtn.id = "cancel-btn";
   cancelBtn.className = "action-button";
   cancelBtn.innerText = "❌ Cancel";
-  cancelBtn.onclick = () => {
-    cleanupUI(); // This will reset our state flag
-    videoElement.play();
+  cancelBtn.onclick = (event) => {
+    event.stopPropagation(); // Stop click from reaching container
+    resetToCameraView(); // Use the new unified reset function
   };
   uiContainer.appendChild(cancelBtn);
   uiContainer.appendChild(confirmBtn);
   cameraContainer.appendChild(uiContainer);
 }
 
-// *** MODIFIED cleanupUI ***
 function cleanupUI() {
   if (cropBox) cropBox.remove();
   if (uiContainer) uiContainer.remove();
   cropBox = null;
   uiContainer = null;
   canvas.style.display = "none";
-  isCaptureModeActive = false; // NEW: Reset the flag when UI is cleared.
+  isCaptureModeActive = false;
 }
 
 function startDrag(e) {

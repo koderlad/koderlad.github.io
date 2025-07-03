@@ -20,11 +20,14 @@ let cropBox = null,
   activeHandle = null;
 let dictionary = null;
 let tesseractWorker = null;
+let isInitialized = false; // NEW state to track initialization
 
-// --- Initialization (no changes) ---
+// --- Initialization ---
 async function initialize() {
   await Promise.all([createTesseractWorker(), loadDictionary()]);
+  isInitialized = true; // Set our flag to true when done
   console.log("Lexilens is ready!");
+  // You could show a "Ready" message to the user here if you wanted.
 }
 async function createTesseractWorker() {
   tesseractWorker = await Tesseract.createWorker("eng", 1, {
@@ -88,26 +91,41 @@ function preprocessImage(imageData) {
   return imageData;
 }
 
-// *** MODIFIED FUNCTION ***
+// *** MODIFIED FUNCTION WITH ROBUST CHECKS ***
 async function handleConfirm() {
-  showLoader(true);
+  // --- NEW CHECKS ADDED HERE ---
+  if (!isInitialized) {
+    alert(
+      "Please wait a moment for the app to initialize before trying again."
+    );
+    return;
+  }
 
   const rect = cropBox.getBoundingClientRect();
   const parentRect = cameraContainer.getBoundingClientRect();
 
-  const cropX = rect.left - parentRect.left;
-  const cropY = rect.top - parentRect.top;
   const cropWidth = rect.width;
   const cropHeight = rect.height;
+
+  if (cropWidth <= 0 || cropHeight <= 0) {
+    alert("The crop box has an invalid size. Please draw a valid box.");
+    cleanupUI();
+    videoElement.play();
+    return;
+  }
+  // --- END OF NEW CHECKS ---
+
+  showLoader(true);
+
+  const cropX = rect.left - parentRect.left;
+  const cropY = rect.top - parentRect.top;
 
   const imageData = ctx.getImageData(cropX, cropY, cropWidth, cropHeight);
   const processedImageData = preprocessImage(imageData);
 
   const result = await recognizeText(processedImageData);
 
-  // =========================================================
-  //  NEW DEBUGGING ALERT IS HERE
-  // =========================================================
+  // The alert for debugging can remain for now.
   if (result) {
     alert(
       `OCR Result:\n\nText: "${result.text.trim()}"\nConfidence: ${result.confidence.toFixed(
@@ -117,7 +135,6 @@ async function handleConfirm() {
   } else {
     alert("OCR failed completely. No result object.");
   }
-  // =========================================================
 
   const recognizedWord = result ? result.text.trim() : "";
 
@@ -128,11 +145,7 @@ async function handleConfirm() {
     showResult("Error", "Could not recognize any text. Please try again.");
   }
 
-  if (cropBox) cropBox.remove();
-  if (uiContainer) uiContainer.remove();
-  cropBox = null;
-  uiContainer = null;
-  canvas.style.display = "none";
+  cleanupUI();
 }
 
 closeResultBtn.onclick = () => {
@@ -293,6 +306,6 @@ function endDrag() {
   activeHandle = null;
   document.removeEventListener("mousemove", drag);
   document.removeEventListener("touchmove", drag);
-  document.addEventListener("mouseup", endDrag);
-  document.addEventListener("touchend", endDrag);
+  document.removeEventListener("mouseup", endDrag);
+  document.removeEventListener("touchend", endDrag);
 }

@@ -1,4 +1,4 @@
-// --- Get references to HTML elements (no changes) ---
+// --- Get references to HTML elements ---
 const videoElement = document.getElementById("camera-feed");
 const cameraContainer = document.getElementById("camera-container");
 const desktopView = document.getElementById("desktop-view");
@@ -7,9 +7,10 @@ const ctx = canvas.getContext("2d");
 const overlay = document.getElementById("overlay");
 const loader = document.getElementById("loader");
 const resultBox = document.getElementById("result-box");
-const resultWordEl = document.getElementById("result-word");
+const resultWordInput = document.getElementById("result-word-input"); // New input field
 const resultDefinitionEl = document.getElementById("result-definition");
 const closeResultBtn = document.getElementById("close-result-btn");
+const lookupBtn = document.getElementById("lookup-btn"); // New lookup button
 
 // --- State Variables (no changes) ---
 let cropBox = null,
@@ -52,21 +53,19 @@ async function loadDictionary() {
   }
 }
 
-// --- Word Lookup (no changes) ---
+// --- Core Functions ---
 function lookupWord(word) {
   if (!dictionary) return "Dictionary not loaded.";
   const cleanWord = word.toLowerCase().replace(/[^a-z]/g, "");
   return dictionary[cleanWord] || "Definition not found.";
 }
 
-// --- OCR Function (no changes from previous debugging version, but will now receive a valid image) ---
 async function recognizeText(image) {
   try {
     const { data } = await tesseractWorker.recognize(image);
     return data;
   } catch (error) {
     console.error("OCR Error:", error);
-    alert("OCR process failed. See console for details."); // Keep an alert for unexpected errors
     return null;
   }
 }
@@ -77,15 +76,18 @@ function showLoader(visible) {
   loader.classList.toggle("hidden", !visible);
   resultBox.classList.toggle("hidden", true);
 }
-function showResult(recognizedWord, definition) {
-  resultWordEl.innerText = recognizedWord;
-  resultDefinitionEl.innerText = definition;
+
+// *** MODIFIED to show the editable input field ***
+function showResult(recognizedWord) {
+  resultWordInput.value = recognizedWord; // Set the input field value
+  resultDefinitionEl.innerText =
+    "Edit the word above if needed, then press 'Look Up'."; // Reset definition
   overlay.classList.add("visible");
   loader.classList.add("hidden");
   resultBox.classList.remove("hidden");
 }
 
-// *** MODIFIED FUNCTION: THE FINAL, CORRECT IMPLEMENTATION ***
+// *** MODIFIED handleConfirm: now only does OCR ***
 async function handleConfirm() {
   if (!isInitialized) {
     alert("Please wait a moment for the app to initialize.");
@@ -100,55 +102,50 @@ async function handleConfirm() {
 
   showLoader(true);
 
-  // --- The New, Robust Method ---
-  // 1. Get the coordinates and dimensions of the crop box.
   const parentRect = cameraContainer.getBoundingClientRect();
-  const cropX = rect.left - parentRect.left;
-  const cropY = rect.top - parentRect.top;
-  const cropWidth = rect.width;
-  const cropHeight = rect.height;
-
-  // 2. Create a new, temporary canvas in memory.
   const tempCanvas = document.createElement("canvas");
-  const tempCtx = tempCanvas.getContext("2d", { willReadFrequently: true }); // Optimization for reading data
-  tempCanvas.width = cropWidth;
-  tempCanvas.height = cropHeight;
-
-  // 3. Draw *only the cropped part* of the main canvas onto the temporary canvas.
-  // This effectively "slices" the image.
+  const tempCtx = tempCanvas.getContext("2d", { willReadFrequently: true });
+  tempCanvas.width = rect.width;
+  tempCanvas.height = rect.height;
   tempCtx.drawImage(
-    canvas, // The source canvas
-    cropX,
-    cropY,
-    cropWidth,
-    cropHeight, // Source rectangle (sx, sy, sWidth, sHeight)
+    canvas,
+    rect.left - parentRect.left,
+    rect.top - parentRect.top,
+    rect.width,
+    rect.height,
     0,
     0,
-    cropWidth,
-    cropHeight // Destination rectangle (dx, dy, dWidth, dHeight)
+    rect.width,
+    rect.height
   );
-  // --- End of New Method ---
 
-  // 4. Send the NEW canvas element to Tesseract. This is much more reliable.
   const result = await recognizeText(tempCanvas);
+  const recognizedText = result ? result.text.trim() : "error";
 
-  if (result && result.text.trim()) {
-    const recognizedWord = result.text.trim();
-    const definition = lookupWord(recognizedWord);
-    showResult(recognizedWord, definition);
-  } else {
-    showResult(
-      "Not Found",
-      "Could not read the text. Try for a clearer image and more precise cropping."
-    );
-  }
+  // Show the result in the editable input field
+  showResult(recognizedText);
 
   cleanupUI();
 }
 
+// *** NEW function to handle the lookup button click ***
+function handleLookup() {
+  const word = resultWordInput.value.trim();
+  if (!word) {
+    resultDefinitionEl.innerText = "Please enter a word to look up.";
+    return;
+  }
+  const definition = lookupWord(word);
+  resultDefinitionEl.innerText = definition;
+}
+
+// Wire up the new button
+lookupBtn.onclick = handleLookup;
+
+// *** MODIFIED close button to reset UI completely ***
 closeResultBtn.onclick = () => {
-  showLoader(false);
-  videoElement.play();
+  overlay.classList.remove("visible"); // Hide the entire overlay
+  videoElement.play(); // Resume camera feed
 };
 
 // --- Main Application Logic & Unchanged Functions ---
@@ -223,6 +220,7 @@ function createActionButtons() {
   const cancelBtn = document.createElement("button");
   cancelBtn.id = "cancel-btn";
   cancelBtn.className = "action-button";
+  cancelBtn.innerText = "❌ Cancel";
   cancelBtn.onclick = () => {
     cleanupUI();
     videoElement.play();

@@ -215,3 +215,52 @@ html {
 .hidden {
   display: none !important;
 }
+
+/* ... (keep all the previous styles) ... */
+
+/* --- Updated Result Box Styles --- */
+#result-word-input {
+  width: 100%;
+  padding: 12px;
+  font-size: 1.6em;
+  font-weight: bold;
+  text-align: center;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  margin-bottom: 15px;
+  box-sizing: border-box; /* Important for padding */
+  color: #007bff;
+}
+
+#result-definition {
+  font-size: 1.1em;
+  line-height: 1.6;
+  min-height: 50px; /* Give it some space even when empty */
+}
+
+#result-actions {
+  margin-top: 20px;
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+}
+
+.result-action-btn {
+  flex-grow: 1; /* Make buttons share space */
+  padding: 12px 20px;
+  border: none;
+  border-radius: 5px;
+  font-size: 1em;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.result-action-btn.close {
+  background-color: #6c757d;
+  color: white;
+}
+.result-action-btn.lookup {
+  background-color: #007bff;
+  color: white;
+}

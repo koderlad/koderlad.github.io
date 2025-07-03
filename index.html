@@ -14,13 +14,31 @@
       <video id="camera-feed" autoplay playsinline muted></video>
       <canvas id="capture-canvas"></canvas>
 
-      <!-- Loading spinner and Result display, hidden by default -->
+      <!-- *** MODIFIED: Result display with input field *** -->
       <div id="overlay">
         <div id="loader" class="hidden"></div>
         <div id="result-box" class="hidden">
-          <h2 id="result-word"></h2>
-          <p id="result-definition"></p>
-          <button id="close-result-btn">Close</button>
+          <!-- Word is now an input field -->
+          <input
+            type="text"
+            id="result-word-input"
+            placeholder="Recognized text..."
+          />
+
+          <!-- Definition is a separate paragraph -->
+          <p id="result-definition">
+            Edit the word above if needed, then press "Look Up".
+          </p>
+
+          <!-- Action buttons for the result box -->
+          <div id="result-actions">
+            <button id="close-result-btn" class="result-action-btn close">
+              Close
+            </button>
+            <button id="lookup-btn" class="result-action-btn lookup">
+              Look Up
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -36,9 +54,7 @@
       </div>
     </div>
 
-    <!-- Tesseract.js from a CDN. This must be before our app.js -->
     <script src="lib/tesseract.min.js"></script>
-
     <script src="app.js" defer></script>
   </body>
 </html>

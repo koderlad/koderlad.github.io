@@ -365,3 +365,19 @@ function endDrag() {
   document.addEventListener("mouseup", endDrag);
   document.addEventListener("touchend", endDrag);
 }
+
+// --- PWA Service Worker Registration ---
+// This should be at the end of your file.
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker
+      .register("/service-worker.js")
+      .then((reg) => {
+        console.log("Service Worker registered successfully:", reg);
+      })
+      .catch((err) => {
+        console.error("Service Worker registration failed:", err);
+      });
+  });
+}

@@ -14,23 +14,26 @@
       <video id="camera-feed" autoplay playsinline muted></video>
       <canvas id="capture-canvas"></canvas>
 
-      <!-- *** MODIFIED: Result display with input field *** -->
       <div id="overlay">
         <div id="loader" class="hidden"></div>
         <div id="result-box" class="hidden">
-          <!-- Word is now an input field -->
           <input
             type="text"
             id="result-word-input"
             placeholder="Recognized text..."
           />
 
-          <!-- Definition is a separate paragraph -->
-          <p id="result-definition">
+          <!-- This will now hold instructions OR error messages -->
+          <p id="result-instructions">
             Edit the word above if needed, then press "Look Up".
           </p>
 
-          <!-- Action buttons for the result box -->
+          <!-- *** NEW: A dedicated, hidden container for the definition *** -->
+          <div id="definition-container" class="hidden">
+            <h3>Definition</h3>
+            <p id="definition-text"></p>
+          </div>
+
           <div id="result-actions">
             <button id="close-result-btn" class="result-action-btn close">
               Close

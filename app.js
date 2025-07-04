@@ -8,11 +8,13 @@ const overlay = document.getElementById("overlay");
 const loader = document.getElementById("loader");
 const resultBox = document.getElementById("result-box");
 const resultWordInput = document.getElementById("result-word-input");
-const resultDefinitionEl = document.getElementById("result-definition");
+const resultInstructions = document.getElementById("result-instructions"); // New reference
+const definitionContainer = document.getElementById("definition-container"); // New reference
+const definitionText = document.getElementById("definition-text"); // New reference
 const closeResultBtn = document.getElementById("close-result-btn");
 const lookupBtn = document.getElementById("lookup-btn");
 
-// --- State Variables ---
+// --- State Variables (no changes) ---
 let cropBox = null,
   uiContainer = null,
   isDragging = false,
@@ -54,11 +56,11 @@ async function loadDictionary() {
   }
 }
 
-// --- Core Functions (no changes) ---
+// --- Core Functions ---
 function lookupWord(word) {
-  if (!dictionary) return "Dictionary not loaded.";
+  if (!dictionary) return null; // Return null if dictionary isn't loaded
   const cleanWord = word.toLowerCase().replace(/[^a-z]/g, "");
-  return dictionary[cleanWord] || "Definition not found.";
+  return dictionary[cleanWord] || null; // Return null if not found
 }
 async function recognizeText(image) {
   try {
@@ -76,10 +78,15 @@ function showLoader(visible) {
   loader.classList.toggle("hidden", !visible);
   resultBox.classList.toggle("hidden", true);
 }
+
+// *** MODIFIED to handle the new UI structure ***
 function showResult(recognizedWord) {
   resultWordInput.value = recognizedWord;
-  resultDefinitionEl.innerText =
+  resultInstructions.innerText =
     "Edit the word above if needed, then press 'Look Up'.";
+  resultInstructions.classList.remove("hidden"); // Ensure instructions are visible
+  definitionContainer.classList.add("hidden"); // Ensure definition is hidden initially
+
   overlay.classList.add("visible");
   loader.classList.add("hidden");
   resultBox.classList.remove("hidden");
@@ -118,21 +125,34 @@ async function handleConfirm() {
   cleanupUI();
 }
 
+// *** MODIFIED to control visibility of new elements ***
 function handleLookup() {
   const word = resultWordInput.value.trim();
   if (!word) {
-    resultDefinitionEl.innerText = "Please enter a word to look up.";
+    resultInstructions.innerText = "Please enter a word to look up.";
+    resultInstructions.classList.remove("hidden");
+    definitionContainer.classList.add("hidden");
     return;
   }
   const definition = lookupWord(word);
-  resultDefinitionEl.innerText = definition;
+
+  if (definition) {
+    // SUCCESS: Show the definition
+    definitionText.innerText = definition;
+    definitionContainer.classList.remove("hidden");
+    resultInstructions.classList.add("hidden"); // Hide instructions
+  } else {
+    // FAILURE: Show error message
+    resultInstructions.innerText = `Definition not found for "${word}".`;
+    resultInstructions.classList.remove("hidden");
+    definitionContainer.classList.add("hidden"); // Hide definition container
+  }
 }
 
-// *** NEW: Central function to reset the entire UI to the camera view ***
 function resetToCameraView() {
-  overlay.classList.remove("visible"); // Hides loader and result box
-  cleanupUI(); // Removes crop box, buttons, and resets state
-  videoElement.play(); // Restarts the live camera feed
+  overlay.classList.remove("visible");
+  cleanupUI();
+  videoElement.play();
 }
 
 // --- Main Application Logic & UI Creation ---
@@ -166,18 +186,14 @@ async function startCamera() {
     alert("Could not access camera.");
   }
 }
-
-// *** MODIFIED: Added stopPropagation to all button clicks ***
 lookupBtn.onclick = (event) => {
   event.stopPropagation();
   handleLookup();
 };
-
 closeResultBtn.onclick = (event) => {
   event.stopPropagation();
   resetToCameraView();
 };
-
 function handleCaptureClick(event) {
   if (isCaptureModeActive) return;
   isCaptureModeActive = true;
@@ -191,7 +207,6 @@ function handleCaptureClick(event) {
   createCropBox(x, y);
   createActionButtons();
 }
-
 function createCropBox(x, y) {
   cropBox = document.createElement("div");
   cropBox.id = "crop-box";
@@ -211,7 +226,6 @@ function createCropBox(x, y) {
   cropBox.addEventListener("mousedown", startDrag);
   cropBox.addEventListener("touchstart", startDrag, { passive: false });
 }
-
 function createActionButtons() {
   uiContainer = document.createElement("div");
   uiContainer.id = "ui-container";
@@ -220,7 +234,7 @@ function createActionButtons() {
   confirmBtn.className = "action-button";
   confirmBtn.innerText = "✅ Confirm";
   confirmBtn.onclick = (event) => {
-    event.stopPropagation(); // Stop click from reaching container
+    event.stopPropagation();
     handleConfirm();
   };
   const cancelBtn = document.createElement("button");
@@ -228,14 +242,13 @@ function createActionButtons() {
   cancelBtn.className = "action-button";
   cancelBtn.innerText = "❌ Cancel";
   cancelBtn.onclick = (event) => {
-    event.stopPropagation(); // Stop click from reaching container
-    resetToCameraView(); // Use the new unified reset function
+    event.stopPropagation();
+    resetToCameraView();
   };
   uiContainer.appendChild(cancelBtn);
   uiContainer.appendChild(confirmBtn);
   cameraContainer.appendChild(uiContainer);
 }
-
 function cleanupUI() {
   if (cropBox) cropBox.remove();
   if (uiContainer) uiContainer.remove();
@@ -244,7 +257,6 @@ function cleanupUI() {
   canvas.style.display = "none";
   isCaptureModeActive = false;
 }
-
 function startDrag(e) {
   e.preventDefault();
   e.stopPropagation();
@@ -309,7 +321,7 @@ function endDrag() {
   isDragging = false;
   activeHandle = null;
   document.removeEventListener("mousemove", drag);
-  document.removeEventListener("touchmove", drag);
+  document.addEventListener("touchmove", drag);
   document.addEventListener("mouseup", endDrag);
   document.addEventListener("touchend", endDrag);
 }

@@ -264,3 +264,34 @@ html {
   background-color: #007bff;
   color: white;
 }
+
+/* ... (keep all the previous styles) ... */
+
+/* --- Explicit Definition Styles --- */
+#definition-container {
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid #e9ecef; /* A light separator line */
+  text-align: left; /* Align definition text to the left for readability */
+}
+
+#definition-container h3 {
+  margin: 0 0 5px 0;
+  font-size: 0.9em;
+  font-weight: 600;
+  color: #6c757d; /* A muted color for the label */
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+#definition-container p {
+  margin: 0;
+  font-size: 1.1em;
+  line-height: 1.6;
+  color: #212529; /* Darker text for the definition itself */
+}
+
+/* This is a helper class to show/hide elements */
+.hidden {
+  display: none !important;
+}

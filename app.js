@@ -22,15 +22,16 @@ let cropBox = null,
   dragStartY,
   activeHandle = null;
 let isCaptureModeActive = false;
-// *** MODIFIED: Dictionary cache instead of a single dictionary object ***
+// *** REMOVED: No longer using a persistent worker ***
 const dictionaryCache = {};
 
 // --- Initialization ---
-// *** REMOVED: No need to load a dictionary upfront anymore ***
+// *** MODIFIED: We only need to load the dictionary now ***
 console.log("Lexilens is ready to fetch dictionary files on demand.");
 
+// *** REMOVED: createTesseractWorker is no longer needed here ***
+
 // --- Core Functions ---
-// *** MODIFIED: The new async lookup function ***
 async function lookupWord(word) {
   if (!word) return null;
 

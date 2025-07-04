@@ -22,54 +22,35 @@ let cropBox = null,
   dragStartY,
   activeHandle = null;
 let isCaptureModeActive = false;
-// *** REMOVED: No longer using a persistent worker ***
-const dictionaryCache = {};
+const dictionaryCache = {}; // Cache for loaded dictionary files
 
 // --- Initialization ---
-// *** MODIFIED: We only need to load the dictionary now ***
 console.log("Lexilens is ready to fetch dictionary files on demand.");
-
-// *** REMOVED: createTesseractWorker is no longer needed here ***
 
 // --- Core Functions ---
 async function lookupWord(word) {
   if (!word) return null;
-
   const cleanWord = word.toLowerCase().replace(/[^a-z]/g, "");
   const firstLetter = cleanWord.charAt(0);
-
   if (!firstLetter.match(/[a-z]/)) return null;
 
-  // 1. Check if the letter's dictionary is already in our cache
   if (!dictionaryCache[firstLetter]) {
-    console.log(
-      `Cache miss for letter '${firstLetter}'. Fetching from network...`
-    );
+    console.log(`Cache miss for letter '${firstLetter}'. Fetching...`);
     try {
-      // 2. If not, fetch the corresponding JSON file from the 'dict' folder
       const response = await fetch(`dict/${firstLetter}.json`);
       if (!response.ok) throw new Error("File not found");
-      // 3. Store the parsed JSON in our cache
       dictionaryCache[firstLetter] = await response.json();
-      console.log(`Successfully fetched and cached dict/${firstLetter}.json`);
     } catch (error) {
-      console.error(
-        `Failed to fetch dictionary for letter '${firstLetter}':`,
-        error
-      );
-      return null; // Return null if the file can't be fetched
+      console.error(`Failed to fetch dictionary for '${firstLetter}':`, error);
+      return null;
     }
   }
-
-  // 4. Look up the word in the (now cached) letter-specific dictionary
   return dictionaryCache[firstLetter][cleanWord] || null;
 }
 
-// *** MODIFIED: The new "Fresh Worker" implementation ***
 async function recognizeText(image) {
   let worker = null;
   try {
-    // 1. Create a fresh worker for this job
     worker = await Tesseract.createWorker("eng", 1, {
       workerPath: "lib/worker.min.js",
       langPath: "lib/",
@@ -82,17 +63,11 @@ async function recognizeText(image) {
             : null
         ),
     });
-
-    // 2. Perform the recognition
     const { data } = await worker.recognize(image);
-
-    // 3. Terminate the worker to free up memory
     await worker.terminate();
-
-    return data; // Return the result
+    return data;
   } catch (error) {
     console.error("OCR Error:", error);
-    // Ensure the worker is terminated even if an error occurs
     if (worker) await worker.terminate();
     return null;
   }
@@ -116,18 +91,12 @@ function showResult(recognizedWord) {
 }
 
 async function handleConfirm() {
-  if (!isInitialized) {
-    alert("Please wait a moment for the app to initialize.");
-    return;
-  }
   const rect = cropBox.getBoundingClientRect();
   if (rect.width <= 0 || rect.height <= 0) {
     resetToCameraView();
     return;
   }
-
   showLoader(true);
-
   const parentRect = cameraContainer.getBoundingClientRect();
   const tempCanvas = document.createElement("canvas");
   const tempCtx = tempCanvas.getContext("2d", { willReadFrequently: true });
@@ -144,16 +113,13 @@ async function handleConfirm() {
     rect.width,
     rect.height
   );
-
-  // This call now creates, uses, and destroys a worker all in one go.
   const result = await recognizeText(tempCanvas);
   const recognizedText = result ? result.text.trim() : "";
-
   showResult(recognizedText);
   cleanupUI();
 }
 
-function handleLookup() {
+async function handleLookup() {
   const word = resultWordInput.value.trim();
   if (!word) {
     resultInstructions.innerText = "Please enter a word to look up.";
@@ -161,7 +127,7 @@ function handleLookup() {
     definitionContainer.classList.add("hidden");
     return;
   }
-  const definition = lookupWord(word);
+  const definition = await lookupWord(word);
   if (definition) {
     definitionText.innerText = definition;
     definitionContainer.classList.remove("hidden");
@@ -181,7 +147,6 @@ function resetToCameraView() {
 
 // --- Main Application Logic & UI Creation ---
 if (isMobile()) {
-  initialize();
   startCamera();
   cameraContainer.addEventListener("click", handleCaptureClick);
 } else {
@@ -345,7 +310,9 @@ function endDrag() {
   isDragging = false;
   activeHandle = null;
   document.removeEventListener("mousemove", drag);
-  document.removeEventListener("touchmove", drag);
+  document.addEventListener("touchmove", drag);
   document.addEventListener("mouseup", endDrag);
   document.addEventListener("touchend", endDrag);
 }
+
+// *** The duplicate function and variable declarations at the end have been removed. ***

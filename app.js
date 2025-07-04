@@ -238,11 +238,19 @@ function handleCaptureClick(event) {
 function createCropBox(x, y) {
   cropBox = document.createElement("div");
   cropBox.id = "crop-box";
-  const initialSize = 150;
-  cropBox.style.left = `${x - initialSize / 2}px`;
-  cropBox.style.top = `${y - initialSize / 2}px`;
-  cropBox.style.width = `${initialSize}px`;
-  cropBox.style.height = `${initialSize / 2}px`;
+
+  // Define width and height explicitly for clarity
+  const initialWidth = 150;
+  const initialHeight = 80;
+
+  // Center the box horizontally AND vertically on the tap point (x, y)
+  cropBox.style.left = `${x - initialWidth / 2}px`;
+  cropBox.style.top = `${y - initialHeight / 2}px`; // Correctly uses height
+
+  // Set the final width and height
+  cropBox.style.width = `${initialWidth}px`;
+  cropBox.style.height = `${initialHeight}px`;
+
   const handles = ["top-left", "top-right", "bottom-left", "bottom-right"];
   handles.forEach((h) => {
     const handle = document.createElement("div");

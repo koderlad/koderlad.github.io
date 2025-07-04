@@ -257,8 +257,8 @@ html {
   transition: background-color 0.2s;
 }
 
-.result-action-btn.close {
-  background-color: #6c757d;
+result-action-btn.close {
+  background-color: #dc3545;
   color: white;
 }
 .result-action-btn.lookup {

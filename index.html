@@ -23,14 +23,13 @@
             placeholder="Recognized text..."
           />
 
-          <!-- This will now hold instructions OR error messages -->
           <p id="result-instructions">
             Edit the word above if needed, then press "Look Up".
           </p>
 
-          <!-- *** NEW: A dedicated, hidden container for the definition *** -->
           <div id="definition-container" class="hidden">
-            <h3>Definition</h3>
+            <!-- *** MODIFIED: Added an id to the h3 tag *** -->
+            <h3 id="definition-label">Definition</h3>
             <p id="definition-text"></p>
           </div>
 

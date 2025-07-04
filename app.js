@@ -11,6 +11,7 @@ const resultWordInput = document.getElementById("result-word-input");
 const resultInstructions = document.getElementById("result-instructions");
 const definitionContainer = document.getElementById("definition-container");
 const definitionText = document.getElementById("definition-text");
+const definitionLabel = document.getElementById("definition-label"); // New element reference
 const closeResultBtn = document.getElementById("close-result-btn");
 const lookupBtn = document.getElementById("lookup-btn");
 
@@ -162,6 +163,9 @@ async function handleLookup() {
   try {
     const definition = await lookupWord(word);
     if (definition) {
+      // This is the new part
+      const capitalizedWord = word.charAt(0).toUpperCase() + word.slice(1);
+      definitionLabel.innerText = `Definition of "${capitalizedWord}"`;
       definitionText.innerText = definition;
       definitionContainer.classList.remove("hidden");
       resultInstructions.classList.add("hidden");

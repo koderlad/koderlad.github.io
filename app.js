@@ -87,7 +87,7 @@ function showResult(recognizedWord) {
   resultBox.classList.remove("hidden");
 }
 
-// *** MODIFIED: This is the critical fix for the coordinate system mismatch ***
+// *** MODIFIED: The definitive fix for 'object-fit: cover' coordinates ***
 async function handleConfirm() {
   const rect = cropBox.getBoundingClientRect();
   if (rect.width <= 0 || rect.height <= 0) {
@@ -96,37 +96,54 @@ async function handleConfirm() {
   }
   showLoader(true);
 
-  // --- Start of Coordinate Translation Logic ---
-  // 1. Calculate the scale factor between the video's actual size and its displayed size
-  const scaleX = videoElement.videoWidth / videoElement.clientWidth;
-  const scaleY = videoElement.videoHeight / videoElement.clientHeight;
+  // --- Start of the Correct Coordinate Translation Logic ---
+  const sourceWidth = canvas.width;
+  const sourceHeight = canvas.height;
+  const displayWidth = canvas.clientWidth;
+  const displayHeight = canvas.clientHeight;
 
-  // 2. Calculate the real coordinates on the full-size canvas
-  // We get the box's position relative to the container, then scale it.
-  const parentRect = cameraContainer.getBoundingClientRect();
-  const cropX = (rect.left - parentRect.left) * scaleX;
-  const cropY = (rect.top - parentRect.top) * scaleY;
-  const cropWidth = rect.width * scaleX;
-  const cropHeight = rect.height * scaleY;
-  // --- End of Coordinate Translation Logic ---
+  const sourceRatio = sourceWidth / sourceHeight;
+  const displayRatio = displayWidth / displayHeight;
+
+  let finalWidth, finalHeight, offsetX, offsetY;
+
+  // Determine the final rendered size and offset of the image inside the canvas element
+  if (sourceRatio > displayRatio) {
+    // Source is wider than display: image is scaled to fit height, width is cropped
+    finalHeight = displayHeight;
+    finalWidth = finalHeight * sourceRatio;
+    offsetX = (finalWidth - displayWidth) / 2;
+    offsetY = 0;
+  } else {
+    // Source is taller than display: image is scaled to fit width, height is cropped
+    finalWidth = displayWidth;
+    finalHeight = finalWidth / sourceRatio;
+    offsetY = (finalHeight - displayHeight) / 2;
+    offsetX = 0;
+  }
+
+  // Calculate the scale factor between the source image and its final rendered size
+  const scale = sourceWidth / finalWidth;
+
+  // Get the crop box's position relative to the canvas element on the screen
+  const canvasRect = canvas.getBoundingClientRect();
+  const boxX = rect.left - canvasRect.left;
+  const boxY = rect.top - canvasRect.top;
+
+  // Translate the screen coordinates to the source image coordinates
+  const sx = (boxX + offsetX) * scale;
+  const sy = (boxY + offsetY) * scale;
+  const sWidth = rect.width * scale;
+  const sHeight = rect.height * scale;
+  // --- End of the Correct Coordinate Translation Logic ---
 
   const tempCanvas = document.createElement("canvas");
   const tempCtx = tempCanvas.getContext("2d", { willReadFrequently: true });
-  tempCanvas.width = cropWidth;
-  tempCanvas.height = cropHeight;
+  tempCanvas.width = sWidth;
+  tempCanvas.height = sHeight;
 
-  // Use the NEW, CORRECTED coordinates to crop from the main canvas
-  tempCtx.drawImage(
-    canvas,
-    cropX,
-    cropY,
-    cropWidth,
-    cropHeight, // Source rectangle from the big canvas
-    0,
-    0,
-    cropWidth,
-    cropHeight // Destination rectangle on the tiny temp canvas
-  );
+  // Use the new, correct coordinates to crop the image
+  tempCtx.drawImage(canvas, sx, sy, sWidth, sHeight, 0, 0, sWidth, sHeight);
 
   const result = await recognizeText(tempCanvas);
   const recognizedText = result ? result.text.trim() : "";

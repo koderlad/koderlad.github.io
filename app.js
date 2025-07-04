@@ -27,13 +27,12 @@ const dictionaryCache = {};
 // --- Initialization ---
 console.log("Lexilens is ready to fetch dictionary files on demand.");
 
-// --- Core Functions ---
+// --- Core Functions (no changes) ---
 async function lookupWord(word) {
   if (!word) return null;
   const cleanWord = word.toLowerCase().replace(/[^a-z]/g, "");
   const firstLetter = cleanWord.charAt(0);
   if (!firstLetter.match(/[a-z]/)) return null;
-
   if (!dictionaryCache[firstLetter]) {
     try {
       const response = await fetch(`dict/${firstLetter}.json`);
@@ -46,7 +45,6 @@ async function lookupWord(word) {
   }
   return dictionaryCache[firstLetter][cleanWord] || null;
 }
-
 async function recognizeText(image) {
   let worker = null;
   try {
@@ -89,6 +87,7 @@ function showResult(recognizedWord) {
   resultBox.classList.remove("hidden");
 }
 
+// *** MODIFIED: This is the critical fix for the coordinate system mismatch ***
 async function handleConfirm() {
   const rect = cropBox.getBoundingClientRect();
   if (rect.width <= 0 || rect.height <= 0) {
@@ -96,22 +95,39 @@ async function handleConfirm() {
     return;
   }
   showLoader(true);
+
+  // --- Start of Coordinate Translation Logic ---
+  // 1. Calculate the scale factor between the video's actual size and its displayed size
+  const scaleX = videoElement.videoWidth / videoElement.clientWidth;
+  const scaleY = videoElement.videoHeight / videoElement.clientHeight;
+
+  // 2. Calculate the real coordinates on the full-size canvas
+  // We get the box's position relative to the container, then scale it.
   const parentRect = cameraContainer.getBoundingClientRect();
+  const cropX = (rect.left - parentRect.left) * scaleX;
+  const cropY = (rect.top - parentRect.top) * scaleY;
+  const cropWidth = rect.width * scaleX;
+  const cropHeight = rect.height * scaleY;
+  // --- End of Coordinate Translation Logic ---
+
   const tempCanvas = document.createElement("canvas");
   const tempCtx = tempCanvas.getContext("2d", { willReadFrequently: true });
-  tempCanvas.width = rect.width;
-  tempCanvas.height = rect.height;
+  tempCanvas.width = cropWidth;
+  tempCanvas.height = cropHeight;
+
+  // Use the NEW, CORRECTED coordinates to crop from the main canvas
   tempCtx.drawImage(
     canvas,
-    rect.left - parentRect.top,
-    rect.top - parentRect.top,
-    rect.width,
-    rect.height,
+    cropX,
+    cropY,
+    cropWidth,
+    cropHeight, // Source rectangle from the big canvas
     0,
     0,
-    rect.width,
-    rect.height
+    cropWidth,
+    cropHeight // Destination rectangle on the tiny temp canvas
   );
+
   const result = await recognizeText(tempCanvas);
   const recognizedText = result ? result.text.trim() : "";
   showResult(recognizedText);

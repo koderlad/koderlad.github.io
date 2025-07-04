@@ -21,40 +21,47 @@ let cropBox = null,
   dragStartX,
   dragStartY,
   activeHandle = null;
-let dictionary = null;
-let isInitialized = false; // This now just means the dictionary is loaded
 let isCaptureModeActive = false;
-// *** REMOVED: No longer using a persistent worker ***
-// let tesseractWorker = null;
+// *** MODIFIED: Dictionary cache instead of a single dictionary object ***
+const dictionaryCache = {};
 
 // --- Initialization ---
-// *** MODIFIED: We only need to load the dictionary now ***
-async function initialize() {
-  await loadDictionary();
-  isInitialized = true;
-  console.log("Lexilens is ready!");
-}
-// *** REMOVED: createTesseractWorker is no longer needed here ***
-
-async function loadDictionary() {
-  try {
-    const response = await fetch("dictionary.json");
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    dictionary = await response.json();
-    console.log("Dictionary loaded.");
-  } catch (e) {
-    console.error("Failed to load dictionary:", e);
-    alert("Error: Could not load the dictionary file.");
-  }
-}
+// *** REMOVED: No need to load a dictionary upfront anymore ***
+console.log("Lexilens is ready to fetch dictionary files on demand.");
 
 // --- Core Functions ---
-function lookupWord(word) {
-  if (!dictionary) return null;
+// *** MODIFIED: The new async lookup function ***
+async function lookupWord(word) {
+  if (!word) return null;
+
   const cleanWord = word.toLowerCase().replace(/[^a-z]/g, "");
-  return dictionary[cleanWord] || null;
+  const firstLetter = cleanWord.charAt(0);
+
+  if (!firstLetter.match(/[a-z]/)) return null;
+
+  // 1. Check if the letter's dictionary is already in our cache
+  if (!dictionaryCache[firstLetter]) {
+    console.log(
+      `Cache miss for letter '${firstLetter}'. Fetching from network...`
+    );
+    try {
+      // 2. If not, fetch the corresponding JSON file from the 'dict' folder
+      const response = await fetch(`dict/${firstLetter}.json`);
+      if (!response.ok) throw new Error("File not found");
+      // 3. Store the parsed JSON in our cache
+      dictionaryCache[firstLetter] = await response.json();
+      console.log(`Successfully fetched and cached dict/${firstLetter}.json`);
+    } catch (error) {
+      console.error(
+        `Failed to fetch dictionary for letter '${firstLetter}':`,
+        error
+      );
+      return null; // Return null if the file can't be fetched
+    }
+  }
+
+  // 4. Look up the word in the (now cached) letter-specific dictionary
+  return dictionaryCache[firstLetter][cleanWord] || null;
 }
 
 // *** MODIFIED: The new "Fresh Worker" implementation ***

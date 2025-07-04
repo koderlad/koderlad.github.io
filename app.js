@@ -28,24 +28,51 @@ const dictionaryCache = {};
 console.log("Lexilens is ready to fetch dictionary files on demand.");
 
 // --- Core Functions ---
+// *** MODIFIED with DEBUGGING ALERTS ***
 async function lookupWord(word) {
   if (!word) return null;
-  // This logic now correctly matches our clean data
+
   const cleanWord = word.toLowerCase().replace(/[^a-z]/g, "");
   const firstLetter = cleanWord.charAt(0);
   if (!firstLetter.match(/[a-z]/)) return null;
 
+  // --- DEBUG ALERT 2: Check if file needs fetching ---
   if (!dictionaryCache[firstLetter]) {
+    alert(
+      `DEBUG: Dictionary for letter '${firstLetter}' is not cached. Attempting to fetch dict/${firstLetter}.json...`
+    );
     try {
       const response = await fetch(`dict/${firstLetter}.json`);
-      if (!response.ok) throw new Error("File not found");
+      if (!response.ok) throw new Error(`File not found: ${response.status}`);
       dictionaryCache[firstLetter] = await response.json();
+      // --- DEBUG ALERT 3: Successful fetch ---
+      alert(`DEBUG: Successfully fetched and cached dict/${firstLetter}.json`);
     } catch (error) {
-      console.error(error);
-      throw error; // Re-throw for the next function to catch
+      alert(
+        `DEBUG: FETCH FAILED for dict/${firstLetter}.json. Error: ${error.message}`
+      );
+      throw error;
     }
+  } else {
+    // --- DEBUG ALERT 4: File is already cached ---
+    alert(
+      `DEBUG: Dictionary for letter '${firstLetter}' was already in the cache.`
+    );
   }
-  return dictionaryCache[firstLetter][cleanWord] || null;
+
+  // --- DEBUG ALERT 5: The Final Lookup ---
+  const definition = dictionaryCache[firstLetter][cleanWord];
+  if (definition) {
+    alert(
+      `DEBUG: Word "${cleanWord}" FOUND in the '${firstLetter}' dictionary!`
+    );
+  } else {
+    alert(
+      `DEBUG: Word "${cleanWord}" was NOT FOUND in the '${firstLetter}' dictionary.`
+    );
+  }
+
+  return definition || null;
 }
 
 async function recognizeText(image) {
@@ -119,14 +146,24 @@ async function handleConfirm() {
   cleanupUI();
 }
 
+// *** MODIFIED with DEBUGGING ALERTS ***
 async function handleLookup() {
   const word = resultWordInput.value.trim();
+
+  // --- DEBUG ALERT 1: Initial state ---
+  const cleanWordForDebug = word.toLowerCase().replace(/[^a-z]/g, "");
+  alert(
+    `DEBUG: Starting lookup.\n\nRaw word: "${word}"\nCleaned word: "${cleanWordForDebug}"`
+  );
+
   if (!word) {
     resultInstructions.innerText = "Please enter a word to look up.";
     return;
   }
+
   resultInstructions.innerText = `Looking up "${word}"...`;
   lookupBtn.disabled = true;
+
   try {
     const definition = await lookupWord(word);
     if (definition) {
@@ -139,8 +176,9 @@ async function handleLookup() {
       definitionContainer.classList.add("hidden");
     }
   } catch (error) {
+    console.error(error);
     resultInstructions.innerText =
-      "Error: Could not load dictionary. Check connection or if 'dict' folder is deployed correctly.";
+      "Error: Could not load dictionary. Please check connection.";
   } finally {
     lookupBtn.disabled = false;
   }
@@ -162,7 +200,7 @@ if (isMobile()) {
 }
 function isMobile() {
   return (
-    ("ontouchstart" in window || navigator.max_touch_points > 0) &&
+    ("ontouchstart" in window || navigator.maxTouchPoints > 0) &&
     /Mobi|Android|iPhone/i.test(navigator.userAgent)
   );
 }

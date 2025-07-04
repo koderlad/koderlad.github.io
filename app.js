@@ -8,13 +8,13 @@ const overlay = document.getElementById("overlay");
 const loader = document.getElementById("loader");
 const resultBox = document.getElementById("result-box");
 const resultWordInput = document.getElementById("result-word-input");
-const resultInstructions = document.getElementById("result-instructions"); // New reference
-const definitionContainer = document.getElementById("definition-container"); // New reference
-const definitionText = document.getElementById("definition-text"); // New reference
+const resultInstructions = document.getElementById("result-instructions");
+const definitionContainer = document.getElementById("definition-container");
+const definitionText = document.getElementById("definition-text");
 const closeResultBtn = document.getElementById("close-result-btn");
 const lookupBtn = document.getElementById("lookup-btn");
 
-// --- State Variables (no changes) ---
+// --- State Variables ---
 let cropBox = null,
   uiContainer = null,
   isDragging = false,
@@ -22,26 +22,20 @@ let cropBox = null,
   dragStartY,
   activeHandle = null;
 let dictionary = null;
-let tesseractWorker = null;
-let isInitialized = false;
+let isInitialized = false; // This now just means the dictionary is loaded
 let isCaptureModeActive = false;
+// *** REMOVED: No longer using a persistent worker ***
+// let tesseractWorker = null;
 
-// --- Initialization (no changes) ---
+// --- Initialization ---
+// *** MODIFIED: We only need to load the dictionary now ***
 async function initialize() {
-  await Promise.all([createTesseractWorker(), loadDictionary()]);
+  await loadDictionary();
   isInitialized = true;
   console.log("Lexilens is ready!");
 }
-async function createTesseractWorker() {
-  tesseractWorker = await Tesseract.createWorker("eng", 1, {
-    workerPath: "lib/worker.min.js",
-    langPath: "lib/",
-    corePath:
-      "https://cdn.jsdelivr.net/npm/tesseract.js-core@5/tesseract-core.wasm.js",
-    logger: (m) => console.log(m),
-  });
-  console.log("Tesseract worker created from local files.");
-}
+// *** REMOVED: createTesseractWorker is no longer needed here ***
+
 async function loadDictionary() {
   try {
     const response = await fetch("dictionary.json");
@@ -58,16 +52,40 @@ async function loadDictionary() {
 
 // --- Core Functions ---
 function lookupWord(word) {
-  if (!dictionary) return null; // Return null if dictionary isn't loaded
+  if (!dictionary) return null;
   const cleanWord = word.toLowerCase().replace(/[^a-z]/g, "");
-  return dictionary[cleanWord] || null; // Return null if not found
+  return dictionary[cleanWord] || null;
 }
+
+// *** MODIFIED: The new "Fresh Worker" implementation ***
 async function recognizeText(image) {
+  let worker = null;
   try {
-    const { data } = await tesseractWorker.recognize(image);
-    return data;
+    // 1. Create a fresh worker for this job
+    worker = await Tesseract.createWorker("eng", 1, {
+      workerPath: "lib/worker.min.js",
+      langPath: "lib/",
+      corePath:
+        "https://cdn.jsdelivr.net/npm/tesseract.js-core@5/tesseract-core.wasm.js",
+      logger: (m) =>
+        console.log(
+          m.status === "recognizing text"
+            ? `Progress: ${(m.progress * 100).toFixed(0)}%`
+            : null
+        ),
+    });
+
+    // 2. Perform the recognition
+    const { data } = await worker.recognize(image);
+
+    // 3. Terminate the worker to free up memory
+    await worker.terminate();
+
+    return data; // Return the result
   } catch (error) {
     console.error("OCR Error:", error);
+    // Ensure the worker is terminated even if an error occurs
+    if (worker) await worker.terminate();
     return null;
   }
 }
@@ -78,15 +96,12 @@ function showLoader(visible) {
   loader.classList.toggle("hidden", !visible);
   resultBox.classList.toggle("hidden", true);
 }
-
-// *** MODIFIED to handle the new UI structure ***
 function showResult(recognizedWord) {
   resultWordInput.value = recognizedWord;
   resultInstructions.innerText =
     "Edit the word above if needed, then press 'Look Up'.";
-  resultInstructions.classList.remove("hidden"); // Ensure instructions are visible
-  definitionContainer.classList.add("hidden"); // Ensure definition is hidden initially
-
+  resultInstructions.classList.remove("hidden");
+  definitionContainer.classList.add("hidden");
   overlay.classList.add("visible");
   loader.classList.add("hidden");
   resultBox.classList.remove("hidden");
@@ -102,7 +117,9 @@ async function handleConfirm() {
     resetToCameraView();
     return;
   }
+
   showLoader(true);
+
   const parentRect = cameraContainer.getBoundingClientRect();
   const tempCanvas = document.createElement("canvas");
   const tempCtx = tempCanvas.getContext("2d", { willReadFrequently: true });
@@ -119,13 +136,15 @@ async function handleConfirm() {
     rect.width,
     rect.height
   );
+
+  // This call now creates, uses, and destroys a worker all in one go.
   const result = await recognizeText(tempCanvas);
   const recognizedText = result ? result.text.trim() : "";
+
   showResult(recognizedText);
   cleanupUI();
 }
 
-// *** MODIFIED to control visibility of new elements ***
 function handleLookup() {
   const word = resultWordInput.value.trim();
   if (!word) {
@@ -135,17 +154,14 @@ function handleLookup() {
     return;
   }
   const definition = lookupWord(word);
-
   if (definition) {
-    // SUCCESS: Show the definition
     definitionText.innerText = definition;
     definitionContainer.classList.remove("hidden");
-    resultInstructions.classList.add("hidden"); // Hide instructions
+    resultInstructions.classList.add("hidden");
   } else {
-    // FAILURE: Show error message
     resultInstructions.innerText = `Definition not found for "${word}".`;
     resultInstructions.classList.remove("hidden");
-    definitionContainer.classList.add("hidden"); // Hide definition container
+    definitionContainer.classList.add("hidden");
   }
 }
 
@@ -321,7 +337,7 @@ function endDrag() {
   isDragging = false;
   activeHandle = null;
   document.removeEventListener("mousemove", drag);
-  document.addEventListener("touchmove", drag);
+  document.removeEventListener("touchmove", drag);
   document.addEventListener("mouseup", endDrag);
   document.addEventListener("touchend", endDrag);
 }

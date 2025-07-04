@@ -28,26 +28,51 @@ const dictionaryCache = {};
 console.log("Lexilens is ready to fetch dictionary files on demand.");
 
 // --- Core Functions ---
-// *** MODIFIED: This function will now THROW an error if fetch fails ***
+// *** MODIFIED with DEBUGGING ALERTS ***
 async function lookupWord(word) {
   if (!word) return null;
+
   const cleanWord = word.toLowerCase().replace(/[^a-z]/g, "");
   const firstLetter = cleanWord.charAt(0);
   if (!firstLetter.match(/[a-z]/)) return null;
 
+  // --- DEBUG ALERT 2: Check if file needs fetching ---
   if (!dictionaryCache[firstLetter]) {
-    console.log(`Cache miss for letter '${firstLetter}'. Fetching...`);
-    const url = `dict/${firstLetter}.json`;
-    const response = await fetch(url);
-    if (!response.ok) {
-      // This is crucial. We throw an error that the next function will catch.
-      throw new Error(
-        `Dictionary file not found at: ${url}. Status: ${response.status}`
+    alert(
+      `DEBUG: Dictionary for letter '${firstLetter}' is not cached. Attempting to fetch dict/${firstLetter}.json...`
+    );
+    try {
+      const response = await fetch(`dict/${firstLetter}.json`);
+      if (!response.ok) throw new Error(`File not found: ${response.status}`);
+      dictionaryCache[firstLetter] = await response.json();
+      // --- DEBUG ALERT 3: Successful fetch ---
+      alert(`DEBUG: Successfully fetched and cached dict/${firstLetter}.json`);
+    } catch (error) {
+      alert(
+        `DEBUG: FETCH FAILED for dict/${firstLetter}.json. Error: ${error.message}`
       );
+      throw error;
     }
-    dictionaryCache[firstLetter] = await response.json();
+  } else {
+    // --- DEBUG ALERT 4: File is already cached ---
+    alert(
+      `DEBUG: Dictionary for letter '${firstLetter}' was already in the cache.`
+    );
   }
-  return dictionaryCache[firstLetter][cleanWord] || null;
+
+  // --- DEBUG ALERT 5: The Final Lookup ---
+  const definition = dictionaryCache[firstLetter][cleanWord];
+  if (definition) {
+    alert(
+      `DEBUG: Word "${cleanWord}" FOUND in the '${firstLetter}' dictionary!`
+    );
+  } else {
+    alert(
+      `DEBUG: Word "${cleanWord}" was NOT FOUND in the '${firstLetter}' dictionary.`
+    );
+  }
+
+  return definition || null;
 }
 
 async function recognizeText(image) {
@@ -121,42 +146,40 @@ async function handleConfirm() {
   cleanupUI();
 }
 
-// *** MODIFIED: The definitive, robust lookup handler ***
+// *** MODIFIED with DEBUGGING ALERTS ***
 async function handleLookup() {
   const word = resultWordInput.value.trim();
+
+  // --- DEBUG ALERT 1: Initial state ---
+  const cleanWordForDebug = word.toLowerCase().replace(/[^a-z]/g, "");
+  alert(
+    `DEBUG: Starting lookup.\n\nRaw word: "${word}"\nCleaned word: "${cleanWordForDebug}"`
+  );
+
   if (!word) {
     resultInstructions.innerText = "Please enter a word to look up.";
     return;
   }
 
-  // 1. Give immediate feedback to the user
   resultInstructions.innerText = `Looking up "${word}"...`;
-  resultInstructions.classList.remove("hidden");
-  definitionContainer.classList.add("hidden");
-  lookupBtn.disabled = true; // Disable button to prevent multiple clicks
+  lookupBtn.disabled = true;
 
   try {
-    // 2. Call the lookup function, which might throw an error
     const definition = await lookupWord(word);
-
     if (definition) {
-      // SUCCESS
       definitionText.innerText = definition;
       definitionContainer.classList.remove("hidden");
       resultInstructions.classList.add("hidden");
     } else {
-      // NOT FOUND
       resultInstructions.innerText = `Definition not found for "${word}".`;
+      resultInstructions.classList.remove("hidden");
+      definitionContainer.classList.add("hidden");
     }
   } catch (error) {
-    // CATCH THE FETCH ERROR
     console.error(error);
     resultInstructions.innerText =
       "Error: Could not load dictionary. Please check your internet connection.";
-    // For debugging, you can alert the specific error:
-    // alert(error.message);
   } finally {
-    // 3. Re-enable the button once the process is complete
     lookupBtn.disabled = false;
   }
 }
@@ -251,7 +274,6 @@ function createActionButtons() {
   const cancelBtn = document.createElement("button");
   cancelBtn.id = "cancel-btn";
   cancelBtn.className = "action-button";
-  cancelBtn.innerText = "❌ Cancel";
   cancelBtn.onclick = (event) => {
     event.stopPropagation();
     resetToCameraView();

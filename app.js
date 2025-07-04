@@ -30,6 +30,7 @@ console.log("Lexilens is ready to fetch dictionary files on demand.");
 // --- Core Functions ---
 async function lookupWord(word) {
   if (!word) return null;
+  // This logic now correctly matches our clean data
   const cleanWord = word.toLowerCase().replace(/[^a-z]/g, "");
   const firstLetter = cleanWord.charAt(0);
   if (!firstLetter.match(/[a-z]/)) return null;
@@ -41,7 +42,7 @@ async function lookupWord(word) {
       dictionaryCache[firstLetter] = await response.json();
     } catch (error) {
       console.error(error);
-      throw error; // Re-throw the error for the next function to catch
+      throw error; // Re-throw for the next function to catch
     }
   }
   return dictionaryCache[firstLetter][cleanWord] || null;
@@ -139,7 +140,7 @@ async function handleLookup() {
     }
   } catch (error) {
     resultInstructions.innerText =
-      "Error: Could not load dictionary. Please check connection.";
+      "Error: Could not load dictionary. Check connection or if 'dict' folder is deployed correctly.";
   } finally {
     lookupBtn.disabled = false;
   }
@@ -161,7 +162,7 @@ if (isMobile()) {
 }
 function isMobile() {
   return (
-    ("ontouchstart" in window || navigator.maxTouchPoints > 0) &&
+    ("ontouchstart" in window || navigator.max_touch_points > 0) &&
     /Mobi|Android|iPhone/i.test(navigator.userAgent)
   );
 }

@@ -28,6 +28,7 @@ const dictionaryCache = {};
 console.log("Lexilens is ready to fetch dictionary files on demand.");
 
 // --- Core Functions ---
+// *** MODIFIED: This function will now THROW an error if fetch fails ***
 async function lookupWord(word) {
   if (!word) return null;
   const cleanWord = word.toLowerCase().replace(/[^a-z]/g, "");
@@ -36,14 +37,15 @@ async function lookupWord(word) {
 
   if (!dictionaryCache[firstLetter]) {
     console.log(`Cache miss for letter '${firstLetter}'. Fetching...`);
-    try {
-      const response = await fetch(`dict/${firstLetter}.json`);
-      if (!response.ok) throw new Error("File not found");
-      dictionaryCache[firstLetter] = await response.json();
-    } catch (error) {
-      console.error(`Failed to fetch dictionary for '${firstLetter}':`, error);
-      return null;
+    const url = `dict/${firstLetter}.json`;
+    const response = await fetch(url);
+    if (!response.ok) {
+      // This is crucial. We throw an error that the next function will catch.
+      throw new Error(
+        `Dictionary file not found at: ${url}. Status: ${response.status}`
+      );
     }
+    dictionaryCache[firstLetter] = await response.json();
   }
   return dictionaryCache[firstLetter][cleanWord] || null;
 }
@@ -119,27 +121,43 @@ async function handleConfirm() {
   cleanupUI();
 }
 
-// *** THE FIX IS HERE: Added the 'async' keyword ***
+// *** MODIFIED: The definitive, robust lookup handler ***
 async function handleLookup() {
   const word = resultWordInput.value.trim();
   if (!word) {
     resultInstructions.innerText = "Please enter a word to look up.";
-    resultInstructions.classList.remove("hidden");
-    definitionContainer.classList.add("hidden");
     return;
   }
 
-  // This 'await' now works correctly because the function is async.
-  const definition = await lookupWord(word);
+  // 1. Give immediate feedback to the user
+  resultInstructions.innerText = `Looking up "${word}"...`;
+  resultInstructions.classList.remove("hidden");
+  definitionContainer.classList.add("hidden");
+  lookupBtn.disabled = true; // Disable button to prevent multiple clicks
 
-  if (definition) {
-    definitionText.innerText = definition;
-    definitionContainer.classList.remove("hidden");
-    resultInstructions.classList.add("hidden");
-  } else {
-    resultInstructions.innerText = `Definition not found for "${word}".`;
-    resultInstructions.classList.remove("hidden");
-    definitionContainer.classList.add("hidden");
+  try {
+    // 2. Call the lookup function, which might throw an error
+    const definition = await lookupWord(word);
+
+    if (definition) {
+      // SUCCESS
+      definitionText.innerText = definition;
+      definitionContainer.classList.remove("hidden");
+      resultInstructions.classList.add("hidden");
+    } else {
+      // NOT FOUND
+      resultInstructions.innerText = `Definition not found for "${word}".`;
+    }
+  } catch (error) {
+    // CATCH THE FETCH ERROR
+    console.error(error);
+    resultInstructions.innerText =
+      "Error: Could not load dictionary. Please check your internet connection.";
+    // For debugging, you can alert the specific error:
+    // alert(error.message);
+  } finally {
+    // 3. Re-enable the button once the process is complete
+    lookupBtn.disabled = false;
   }
 }
 

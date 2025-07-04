@@ -22,7 +22,7 @@ let cropBox = null,
   dragStartY,
   activeHandle = null;
 let isCaptureModeActive = false;
-const dictionaryCache = {}; // Cache for loaded dictionary files
+const dictionaryCache = {};
 
 // --- Initialization ---
 console.log("Lexilens is ready to fetch dictionary files on demand.");
@@ -119,6 +119,7 @@ async function handleConfirm() {
   cleanupUI();
 }
 
+// *** THE FIX IS HERE: Added the 'async' keyword ***
 async function handleLookup() {
   const word = resultWordInput.value.trim();
   if (!word) {
@@ -127,7 +128,10 @@ async function handleLookup() {
     definitionContainer.classList.add("hidden");
     return;
   }
+
+  // This 'await' now works correctly because the function is async.
   const definition = await lookupWord(word);
+
   if (definition) {
     definitionText.innerText = definition;
     definitionContainer.classList.remove("hidden");
@@ -314,5 +318,3 @@ function endDrag() {
   document.addEventListener("mouseup", endDrag);
   document.addEventListener("touchend", endDrag);
 }
-
-// *** The duplicate function and variable declarations at the end have been removed. ***
